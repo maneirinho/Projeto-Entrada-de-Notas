@@ -1,0 +1,762 @@
+//ok
+unit UTabela;
+
+interface
+
+uses
+  Windows, Messages, SysUtils, Variants, Classes, Graphics, Controls, Forms,
+  Dialogs, StdCtrls, Buttons, ExtCtrls, Grids, DBGrids, DB, IBODataset, DUtilit,
+  IB_Components, MessageFunctions;
+
+type
+  TMostrarOQue = (mqProdUltimasVendas, mqProdUltimasCompras, mqProdFornec, mqProdVendaMensal,
+                  mqCliUltimasCompras, mqAuditoriaEstoque);
+
+  TfTabela = class(TForm)
+    DBGrid: TDBGrid;
+    Panel1: TPanel;
+    Bt_Sair: TBitBtn;
+    DataSource1: TDataSource;
+    IBEstaTabela: TIBOQuery;
+    TREstaTabela: TIBOTransaction;
+    btMostraItems: TSpeedButton;
+    procedure Bt_SairClick(Sender: TObject);
+    procedure FormShow(Sender: TObject);
+    procedure FormKeyDown(Sender: TObject; var Key: Word; Shift: TShiftState);
+    procedure DBGridDblClick(Sender: TObject);
+    procedure btMostraItemsClick(Sender: TObject);
+    procedure FormCreate(Sender: TObject);
+    procedure FormClose(Sender: TObject; var Action: TCloseAction);
+  private
+    procedure FormataCampo(Indice:word; Mascara:String);
+  public
+    MostrarOQue : TMostrarOQue;
+    ChaveEntrada : Integer;
+  end;
+
+var
+  fTabela: TfTabela;
+
+implementation
+
+Uses UConstVar, UConsultaNotas, UComum, DBFunctions, UDataMod;
+
+{$R *.dfm}
+
+procedure TfTabela.Bt_SairClick(Sender: TObject);
+begin
+  Close;
+end;
+
+procedure TfTabela.FormShow(Sender: TObject);
+type
+  TRegInfoField = record
+    FieldName      : String;
+    Caption        : String;
+    TitleAlignment : TAlignment;
+    Width          : word;
+    Alignment      : TAlignment;
+    DisplayFormat  : String;
+  end;
+var
+  C : word;
+  InfoField : Array of TRegInfoField;
+begin
+  try
+    Screen.Cursor := crHourGlass;
+    with IBEstaTabela do
+    begin
+      case MostrarOQue of
+        mqProdUltimasCompras : begin  // ### Prod. Últimas Compras #################
+          AbreAviso('Carregando Últimas Compras do Produto');
+          Width := 683;
+          Height := 356;
+          btMostraItems.Visible := true;
+          DBGrid.Columns.Clear;
+
+          C := 1;
+          SetLength(InfoField, C);
+          with InfoField[Length(InfoField)-1] do begin
+            Caption        := 'Data';
+            FieldName      := 'DT_ENTRADA';
+            TitleAlignment := taCenter;
+            Width          := 77;
+            Alignment      := taCenter;
+            DisplayFormat  := 'dd/mm/yyyy';
+          end;
+          inc(C);
+          SetLength(InfoField, C);
+          with InfoField[Length(InfoField)-1] do begin
+            Caption        := 'Vínculo';
+            FieldName      := 'COD_PROD_FORNEC';
+            TitleAlignment := taCenter;
+            Width          := 69;
+            Alignment      := taLeftJustify;
+            DisplayFormat  := '';
+          end;
+          inc(C);
+          SetLength(InfoField, C);
+          with InfoField[Length(InfoField)-1] do begin
+            Caption        := 'Cod. Fornec.';
+            FieldName      := 'CD_FORNECEDOR';
+            TitleAlignment := taCenter;
+            Width          := 66;
+            Alignment      := taRightJustify;
+            DisplayFormat  := '';
+          end;
+          inc(C);
+          SetLength(InfoField, C);
+          with InfoField[Length(InfoField)-1] do begin
+            Caption        := 'Fornecedor';
+            FieldName      := 'NM_FORNECEDOR';
+            TitleAlignment := taCenter;
+            Width          := 250;
+            Alignment      := taLeftJustify;
+            DisplayFormat  := '';
+          end;
+          inc(C);
+          SetLength(InfoField, C);
+          with InfoField[Length(InfoField)-1] do begin
+            Caption        := 'Quantidade';
+            FieldName      := 'QUANTIDADE';
+            TitleAlignment := taCenter;
+            Width          := 92;
+            Alignment      := taRightJustify;
+            DisplayFormat  := ',0.000;-,0.000';
+          end;
+          inc(C);
+          SetLength(InfoField, C);
+          with InfoField[Length(InfoField)-1] do begin
+            Caption        := 'Valor (und)';
+            FieldName      := 'VALOR';
+            TitleAlignment := taCenter;
+            Width          := 79;
+            Alignment      := taRightJustify;
+            DisplayFormat  := ',0.00;-,0.00';
+          end;
+
+          for C := 0 to Length(InfoField)-1 do
+          begin
+            DBGrid.Columns.Add;
+            DBGrid.Columns.Items[C].FieldName       := InfoField[C].FieldName;
+            DBGrid.Columns.Items[C].Title.Caption   := InfoField[C].Caption;
+            DBGrid.Columns.Items[C].Title.Alignment := InfoField[C].TitleAlignment;
+            DBGrid.Columns.Items[C].Width           := InfoField[C].Width;
+            DBGrid.Columns.Items[C].Alignment       := InfoField[C].Alignment;
+          end;
+
+          Active := false;
+          SQL.Clear;
+          SQL.Add('select');
+          SQL.Add('ENTRADA.DT_ENTRADA,');
+          SQL.Add('PF.COD_PROD_FORNEC,');
+          SQL.Add('F.NM_FORNECEDOR,');
+          SQL.Add('F.CD_FORNECEDOR,');
+          SQL.Add('NI.CD_PRODUTO,');
+          SQL.Add('ENTRADA.CD_NOTA,');
+          SQL.Add('(NI.QUANTIDADE * NI.UNDCONVERSAO) as QUANTIDADE,');
+          SQL.Add('(NI.VALORUNITARIO / NI.UNDCONVERSAO) as VALOR');
+          SQL.Add('');
+          SQL.Add('from ENTRADA_ITEM NI');
+          SQL.Add('left outer join ENTRADA on NI.CD_NOTA = ENTRADA.CD_NOTA');
+          SQL.Add('left outer join FORNECEDORES F on F.CD_FORNECEDOR = ENTRADA.CD_FORNECEDOR');
+          SQL.Add('left outer join PRODFORNEC PF on (NI.CD_PRODUTO = PF.CD_PRODUTO and ENTRADA.CD_FORNECEDOR = PF.CD_FORNECEDOR)');
+          SQL.Add('');
+          SQL.Add('where');
+          SQL.Add('NI.CD_PRODUTO = :CD_PRODUTO');
+          SQL.Add('');
+          SQL.Add('order by 1 desc');
+          if not Prepared then Prepare;
+          ParamByName('CD_PRODUTO').AsInteger := ChaveEntrada;
+          Active := true;
+
+          for C := 0 to Length(InfoField)-1 do
+            FormataCampo(C, InfoField[C].DisplayFormat);
+        end;
+
+        mqProdUltimasVendas : begin    // ### Prod. Últimas Vendas #################
+          AbreAviso('Carregando Últimas Vendas do Produto');
+          Width := 618;
+          Height := 356;
+          btMostraItems.Visible := false;
+          DBGrid.Columns.Clear;
+
+          C := 1;
+          SetLength(InfoField, C);
+          with InfoField[Length(InfoField)-1] do begin
+            Caption        := 'Data';
+            FieldName      := 'DATA_HORA';
+            TitleAlignment := taCenter;
+            Width          := 56;
+            Alignment      := taCenter;
+            DisplayFormat  := 'dd/mm/yyyy';
+          end;
+          inc(C);
+          SetLength(InfoField, C);
+          with InfoField[Length(InfoField)-1] do begin
+            Caption        := 'Cod. Cliente';
+            FieldName      := 'CD_CLIENTE';
+            TitleAlignment := taCenter;
+            Width          := 62;
+            Alignment      := taRightJustify;
+            DisplayFormat  := Repete('0', DigCodCliente);
+          end;
+          inc(C);
+          SetLength(InfoField, C);
+          with InfoField[Length(InfoField)-1] do begin
+            Caption        := 'Nome Cliente';
+            FieldName      := 'NM_CLIENTE';
+            TitleAlignment := taCenter;
+            Width          := 224;
+            Alignment      := taLeftJustify;
+            DisplayFormat  := '';
+          end;
+          inc(C);
+          SetLength(InfoField, C);
+          with InfoField[Length(InfoField)-1] do begin
+            Caption        := 'Quantidade';
+            FieldName      := 'QUANTIDADE';
+            TitleAlignment := taCenter;
+            Width          := 59;
+            Alignment      := taRightJustify;
+            DisplayFormat  := ',0.000;-,0.000';
+          end;
+          inc(C);
+          SetLength(InfoField, C);
+          with InfoField[Length(InfoField)-1] do begin
+            Caption        := 'Preço Unit.';
+            FieldName      := 'PRECO';
+            TitleAlignment := taCenter;
+            Width          := 82;
+            Alignment      := taRightJustify;
+            DisplayFormat  := ',0.00;-,0.00';
+          end;
+          inc(C);
+          SetLength(InfoField, C);
+          with InfoField[Length(InfoField)-1] do begin
+            Caption        := 'Preço Custo';
+            FieldName      := 'PRECOCUSTO';
+            TitleAlignment := taCenter;
+            Width          := 78;
+            Alignment      := taRightJustify;
+            DisplayFormat  := ',0.00;-,0.00';
+          end;
+
+          for C := 0 to Length(InfoField)-1 do
+          begin
+            DBGrid.Columns.Add;
+            DBGrid.Columns.Items[C].FieldName       := InfoField[C].FieldName;
+            DBGrid.Columns.Items[C].Title.Caption   := InfoField[C].Caption;
+            DBGrid.Columns.Items[C].Title.Alignment := InfoField[C].TitleAlignment;
+            DBGrid.Columns.Items[C].Width           := InfoField[C].Width;
+            DBGrid.Columns.Items[C].Alignment       := InfoField[C].Alignment;
+          end;
+
+          Active := false;
+          SQL.Clear;
+          SQL.Add('select first 100');
+          SQL.Add('V.DATA_HORA,');
+          SQL.Add('Q.QUANTIDADE,');
+          SQL.Add('C.CD_CLIENTE,');
+          SQL.Add('coalesce(C.NM_CLIENTE, '+QuotedStr('Consumidor Final')+') as NM_CLIENTE,');
+          SQL.Add('VI.PRECO,');
+          SQL.Add('VI.PRECOCUSTO');
+          SQL.Add('');
+          SQL.Add('from PEDIDO_ITEM VI');
+          SQL.Add('left outer join PEDIDO V on VI.NUM_DOCUMENTO = V.NUM_DOCUMENTO');
+          SQL.Add('left outer join CLIENTES C on V.CD_CLIENTE = C.CD_CLIENTE');
+          SQL.Add('left outer join SP_QUANTIDADE(VI.QUANTIDADE, VI.DIM_COMPRIMENTO, VI.DIM_LARGURA, VI.DIM_ESPESSURA) Q on 1=1 ');
+          SQL.Add('');
+          SQL.Add('where');
+          SQL.Add('VI.CD_PRODUTO = :CD_PRODUTO ');
+          SQL.Add('and V.PED_ORC_VENDA = ''V'' ');
+          SQL.Add('and V.CANCELADO <> ''V''    ');
+          SQL.Add('');
+          SQL.Add('order by 1 desc');
+          if not Prepared then Prepare;
+          ParamByName('CD_PRODUTO').AsInteger := ChaveEntrada;
+          Active := true;
+
+          for C := 0 to Length(InfoField)-1 do
+            FormataCampo(C, InfoField[C].DisplayFormat);
+        end;
+
+        mqProdFornec : begin    // ### Prod. Fornec #################
+          AbreAviso('Carregando Cód. do Produto do Fornecedor');
+          Width := 466;
+          Height := 278;
+          btMostraItems.Visible := true;
+          DBGrid.Columns.Clear;
+
+          C := 1;
+          SetLength(InfoField, C);
+          with InfoField[Length(InfoField)-1] do begin
+            Caption        := 'Vínculo';
+            FieldName      := 'COD_PROD_FORNEC';
+            TitleAlignment := taCenter;
+            Width          := 61;
+            Alignment      := taCenter;
+            DisplayFormat  := '';
+          end;
+          inc(C);
+          SetLength(InfoField, C);
+          with InfoField[Length(InfoField)-1] do begin
+            Caption        := 'Cód. Fornec';
+            FieldName      := 'CD_FORNECEDOR';
+            TitleAlignment := taCenter;
+            Width          := 67;
+            Alignment      := taRightJustify;
+            DisplayFormat  := '';
+          end;
+          inc(C);
+          SetLength(InfoField, C);
+          with InfoField[Length(InfoField)-1] do begin
+            Caption        := 'Fornecedor';
+            FieldName      := 'NM_FORNECEDOR';
+            TitleAlignment := taCenter;
+            Width          := 213;
+            Alignment      := taLeftJustify;
+            DisplayFormat  := '';
+          end;
+          inc(C);
+          SetLength(InfoField, C);
+          with InfoField[Length(InfoField)-1] do begin
+            Caption        := 'Última Compra';
+            FieldName      := 'MAX';
+            TitleAlignment := taCenter;
+            Width          := 74;
+            Alignment      := taCenter;
+            DisplayFormat  := 'dd/mm/yyyy';
+          end;
+
+          for C := 0 to Length(InfoField)-1 do
+          begin
+            DBGrid.Columns.Add;
+            DBGrid.Columns.Items[C].FieldName       := InfoField[C].FieldName;
+            DBGrid.Columns.Items[C].Title.Caption   := InfoField[C].Caption;
+            DBGrid.Columns.Items[C].Title.Alignment := InfoField[C].TitleAlignment;
+            DBGrid.Columns.Items[C].Width           := InfoField[C].Width;
+            DBGrid.Columns.Items[C].Alignment       := InfoField[C].Alignment;
+          end;
+
+          Active := false;
+          SQL.Clear;
+          SQL.Add('select');
+          SQL.Add('PF.COD_PROD_FORNEC,');
+          SQL.Add('F.NM_FORNECEDOR,');
+          SQL.Add('F.CD_FORNECEDOR,');
+          SQL.Add('NI.CD_PRODUTO,');
+          SQL.Add('max(ENTRADA.DT_ENTRADA)');
+          SQL.Add('');
+          SQL.Add('from ENTRADA_ITEM NI');
+          SQL.Add('left outer join ENTRADA on NI.CD_NOTA = ENTRADA.CD_NOTA');
+          SQL.Add('left outer join FORNECEDORES F on F.CD_FORNECEDOR = ENTRADA.CD_FORNECEDOR');
+          SQL.Add('left outer join PRODFORNEC PF on (NI.CD_PRODUTO = PF.CD_PRODUTO and ENTRADA.CD_FORNECEDOR = PF.CD_FORNECEDOR)');
+          SQL.Add('');
+          SQL.Add('where');
+          SQL.Add('NI.CD_PRODUTO = :CD_PRODUTO');
+          SQL.Add('');
+          SQL.Add('group by F.cd_fornecedor, PF.COD_PROD_FORNEC, F.NM_FORNECEDOR, NI.CD_PRODUTO');
+          SQL.Add('');
+          SQL.Add('order by 5 desc');
+          if not Prepared then Prepare;
+          ParamByName('CD_PRODUTO').AsInteger := ChaveEntrada;
+          Active := true;
+
+          for C := 0 to Length(InfoField)-1 do
+            FormataCampo(C, InfoField[C].DisplayFormat);
+        end;
+
+        mqProdVendaMensal : begin    // ### Prod. Venda Mensal #################
+          AbreAviso('Carregando Venda Mensal do Produto');
+          Width := 266;
+          Height := 356;
+          btMostraItems.Visible := false;
+          DBGrid.Columns.Clear;
+
+          C := 1;
+          SetLength(InfoField, C);
+          with InfoField[Length(InfoField)-1] do begin
+            Caption        := 'Período';
+            FieldName      := 'PERIODO';
+            TitleAlignment := taCenter;
+            Width          := 105;
+            Alignment      := taCenter;
+            DisplayFormat  := '';
+          end;
+          inc(C);
+          SetLength(InfoField, C);
+          with InfoField[Length(InfoField)-1] do begin
+            Caption        := 'Quantidade';
+            FieldName      := 'QUANTIDADE';
+            TitleAlignment := taCenter;
+            Width          := 107;
+            Alignment      := taRightJustify;
+            DisplayFormat  := ',0.000;-,0.000';
+          end;
+
+          for C := 0 to Length(InfoField)-1 do
+          begin
+            DBGrid.Columns.Add;
+            DBGrid.Columns.Items[C].FieldName       := InfoField[C].FieldName;
+            DBGrid.Columns.Items[C].Title.Caption   := InfoField[C].Caption;
+            DBGrid.Columns.Items[C].Title.Alignment := InfoField[C].TitleAlignment;
+            DBGrid.Columns.Items[C].Width           := InfoField[C].Width;
+            DBGrid.Columns.Items[C].Alignment       := InfoField[C].Alignment;
+          end;
+
+          Active := false;
+          SQL.Clear;
+          SQL.Add('select');
+          SQL.Add('(extract (month from V.DATA_HORA)) as MES,');
+          SQL.Add('(extract (Year from V.DATA_HORA)) as ANO,');
+//          SQL.Add('cast(udf_PadL(extract (month from V.DATA_HORA), ''0'', 2)||''/''||extract (Year from V.DATA_HORA) as VARCHAR(7)) as PERIODO,');
+          SQL.Add('case');
+          SQL.Add('  when extract(month from V.DATA_HORA) = 1  THEN ''JAN''||'' / ''||extract (Year from V.DATA_HORA)');
+          SQL.Add('  when extract(month from V.DATA_HORA) = 2  THEN ''FEV''||'' / ''||extract (Year from V.DATA_HORA)');
+          SQL.Add('  when extract(month from V.DATA_HORA) = 3  THEN ''MAR''||'' / ''||extract (Year from V.DATA_HORA)');
+          SQL.Add('  when extract(month from V.DATA_HORA) = 4  THEN ''ABR''||'' / ''||extract (Year from V.DATA_HORA)');
+          SQL.Add('  when extract(month from V.DATA_HORA) = 5  THEN ''MAI''||'' / ''||extract (Year from V.DATA_HORA)');
+          SQL.Add('  when extract(month from V.DATA_HORA) = 6  THEN ''JUN''||'' / ''||extract (Year from V.DATA_HORA)');
+          SQL.Add('  when extract(month from V.DATA_HORA) = 7  THEN ''JUL''||'' / ''||extract (Year from V.DATA_HORA)');
+          SQL.Add('  when extract(month from V.DATA_HORA) = 8  THEN ''AGO''||'' / ''||extract (Year from V.DATA_HORA)');
+          SQL.Add('  when extract(month from V.DATA_HORA) = 9  THEN ''SET''||'' / ''||extract (Year from V.DATA_HORA)');
+          SQL.Add('  when extract(month from V.DATA_HORA) = 10 THEN ''OUT''||'' / ''||extract (Year from V.DATA_HORA)');
+          SQL.Add('  when extract(month from V.DATA_HORA) = 11 THEN ''NOV''||'' / ''||extract (Year from V.DATA_HORA)');
+          SQL.Add('  when extract(month from V.DATA_HORA) = 12 THEN ''DEZ''||'' / ''||extract (Year from V.DATA_HORA)');
+          SQL.Add('end as PERIODO,');
+          SQL.Add('');
+          SQL.Add('sum(Q.QUANTIDADE) as QUANTIDADE');
+          SQL.Add('');
+          SQL.Add('from PEDIDO_ITEM VI');
+          SQL.Add('left outer join PEDIDO V on VI.NUM_DOCUMENTO = V.NUM_DOCUMENTO');
+          SQL.Add('left outer join CLIENTES C on VI.CD_CLIENTE = C.CD_CLIENTE');
+          SQL.Add('left outer join SP_QUANTIDADE(VI.QUANTIDADE, VI.DIM_COMPRIMENTO, VI.DIM_LARGURA, VI.DIM_ESPESSURA) Q on 1=1 ');
+          SQL.Add('');
+          SQL.Add('where');
+          SQL.Add('VI.CD_PRODUTO = :CD_PRODUTO');
+          SQL.Add('and V.CANCELADO <> ''V''');
+          SQL.Add('');
+          SQL.Add('group by 2, 1');
+          SQL.Add('order by 2 desc, 1 desc');
+          if not Prepared then Prepare;
+          ParamByName('CD_PRODUTO').AsInteger := ChaveEntrada;
+          Active := true;
+
+          for C := 0 to Length(InfoField)-1 do
+            FormataCampo(C, InfoField[C].DisplayFormat);
+        end;
+
+        mqCliUltimasCompras : begin    // ### Clientes Últimas Compras #################
+          AbreAviso('Carregando Últimas Compras do Cliente');
+          Width := 665;
+          Height := 356;
+          btMostraItems.Visible := true;
+          DBGrid.Columns.Clear;
+
+          C := 1;
+          SetLength(InfoField, C);
+          with InfoField[Length(InfoField)-1] do begin
+            Caption        := 'Data';
+            FieldName      := 'DATA_HORA';
+            TitleAlignment := taCenter;
+            Width          := 115;
+            Alignment      := taCenter;
+            DisplayFormat  := 'dd/mm/yyyy';
+          end;
+          inc(C);
+          SetLength(InfoField, C);
+          with InfoField[Length(InfoField)-1] do begin
+            Caption        := 'Nº Documento';
+            FieldName      := 'NUM_DOCUMENTO';
+            TitleAlignment := taCenter;
+            Width          := 115;
+            Alignment      := taLeftJustify;
+            DisplayFormat  := Repete('0', DigNumDocumento);
+          end;
+          inc(C);
+          SetLength(InfoField, C);
+          with InfoField[Length(InfoField)-1] do begin
+            Caption        := 'Nº NF';
+            FieldName      := 'NF_NUMERO';
+            TitleAlignment := taCenter;
+            Width          := 115;
+            Alignment      := taLeftJustify;
+            DisplayFormat  := '';
+          end;
+          inc(C);
+          SetLength(InfoField, C);
+          with InfoField[Length(InfoField)-1] do begin
+            Caption        := 'Cupom';
+            FieldName      := 'ECF_COO';
+            TitleAlignment := taCenter;
+            Width          := 115;
+            Alignment      := taLeftJustify;
+            DisplayFormat  := '';
+          end;
+          inc(C);
+          SetLength(InfoField, C);
+          with InfoField[Length(InfoField)-1] do begin
+            Caption        := 'Valor';
+            FieldName      := 'TOTALLIQUIDO';
+            TitleAlignment := taCenter;
+            Width          := 115;
+            Alignment      := taRightJustify;
+            DisplayFormat  := ',0.00;-,0.00';
+          end;
+
+          for C := 0 to Length(InfoField)-1 do
+          begin
+            DBGrid.Columns.Add;
+            DBGrid.Columns.Items[C].FieldName       := InfoField[C].FieldName;
+            DBGrid.Columns.Items[C].Title.Caption   := InfoField[C].Caption;
+            DBGrid.Columns.Items[C].Title.Alignment := InfoField[C].TitleAlignment;
+            DBGrid.Columns.Items[C].Width           := InfoField[C].Width;
+            DBGrid.Columns.Items[C].Alignment       := InfoField[C].Alignment;
+          end;
+
+          Active := false;
+          SQL.Clear;
+          SQL.Add('select first 100                ');
+          SQL.Add('V.DATA_HORA,                    ');
+          SQL.Add('V.TOTALLIQUIDO,                 ');
+          SQL.Add('V.NUM_DOCUMENTO,                ');
+          SQL.Add('V.NF_NUMERO                     ');
+          SQL.Add('from PEDIDO V                   ');
+          SQL.Add('where V.PED_ORC_VENDA = ''V''   ');
+          SQL.Add('and V.CANCELADO <> ''V''        ');
+          SQL.Add('and V.CD_CLIENTE = :CD_CLIENTE  ');
+          SQL.Add('order by 1 desc                 ');
+          if not Prepared then Prepare;
+          ParamByName('CD_CLIENTE').AsInteger := ChaveEntrada;
+          Active := true;
+
+          for C := 0 to Length(InfoField)-1 do
+            FormataCampo(C, InfoField[C].DisplayFormat);
+        end;
+
+        mqAuditoriaEstoque : begin    // ### Auditoria de Estoque #################
+          AbreAviso('Carregando Movimentação de Estoque');
+          Width := 793;
+          Height := 380;
+          btMostraItems.Visible := false;
+          DBGrid.Columns.Clear;
+
+          C := 1;
+          SetLength(InfoField, C);
+          with InfoField[Length(InfoField)-1] do begin
+            Caption        := 'Data';
+            FieldName      := 'DATA';
+            TitleAlignment := taCenter;
+            Width          := 112;
+            Alignment      := taCenter;
+            DisplayFormat  := 'dd/mm/yyyy  hh:mm:ss';
+          end;
+          inc(C);
+          SetLength(InfoField, C);
+          with InfoField[Length(InfoField)-1] do begin
+            Caption        := 'Quantidade';
+            FieldName      := 'QUANTIDADE';
+            TitleAlignment := taCenter;
+            Width          := 59;
+            Alignment      := taRightJustify;
+            DisplayFormat  := ',0.###;-,0.###';
+          end;
+          inc(C);
+          SetLength(InfoField, C);
+          with InfoField[Length(InfoField)-1] do begin
+            Caption        := 'Oper.';
+            FieldName      := 'OPERACAO';
+            TitleAlignment := taCenter;
+            Width          := 30;
+            Alignment      := taCenter;
+            DisplayFormat  := '';
+          end;
+          inc(C);
+          SetLength(InfoField, C);
+          with InfoField[Length(InfoField)-1] do begin
+            Caption        := 'Histórico';
+            FieldName      := 'HISTORICO';
+            TitleAlignment := taCenter;
+            Width          := 300;
+            Alignment      := taLeftJustify;
+            DisplayFormat  := '';
+          end;
+          inc(C);
+          SetLength(InfoField, C);
+          with InfoField[Length(InfoField)-1] do begin
+            Caption        := 'Saldo Anterior';
+            FieldName      := 'SALDOANTERIOR';
+            TitleAlignment := taCenter;
+            Width          := 82;
+            Alignment      := taRightJustify;
+            DisplayFormat  := ',0.###;-,0.###';
+          end;
+          inc(C);
+          SetLength(InfoField, C);
+          with InfoField[Length(InfoField)-1] do begin
+            Caption        := 'Saldo Atual';
+            FieldName      := 'SALDO';
+            TitleAlignment := taCenter;
+            Width          := 82;
+            Alignment      := taRightJustify;
+            DisplayFormat  := ',0.###;-,0.###';
+          end;
+          inc(C);
+          SetLength(InfoField, C);
+          with InfoField[Length(InfoField)-1] do begin
+            Caption        := 'Login';
+            FieldName      := 'LOGIN';
+            TitleAlignment := taCenter;
+            Width          := 80;
+            Alignment      := taLeftJustify;
+            DisplayFormat  := '';
+          end;
+
+          for C := 0 to Length(InfoField)-1 do
+          begin
+            DBGrid.Columns.Add;
+            DBGrid.Columns.Items[C].FieldName       := InfoField[C].FieldName;
+            DBGrid.Columns.Items[C].Title.Caption   := InfoField[C].Caption;
+            DBGrid.Columns.Items[C].Title.Alignment := InfoField[C].TitleAlignment;
+            DBGrid.Columns.Items[C].Width           := InfoField[C].Width;
+            DBGrid.Columns.Items[C].Alignment       := InfoField[C].Alignment;
+          end;
+
+          Active := false;
+          SQL.Clear;
+          SQL.Add('Select first 100');
+          SQL.Add('DATA, QUANTIDADE, OPERACAO, HISTORICO, SALDOANTERIOR, SALDO, LOGIN');
+          SQL.Add('from MOVESTOQUE');
+          SQL.Add('where');
+          SQL.Add('CD_PRODUTO = :CD_PRODUTO');
+          SQL.Add('order by 1 desc');
+          if not Prepared then Prepare;
+          ParamByName('CD_PRODUTO').AsInteger := ChaveEntrada;
+          Active := true;
+
+          for C := 0 to Length(InfoField)-1 do
+            FormataCampo(C, InfoField[C].DisplayFormat);
+        end;
+
+      end;
+    end;
+
+    Bt_Sair.Left := (Width div 2) - Bt_Sair.Width div 2;
+  finally
+    Screen.Cursor := crDefault;
+    CM.FechaAviso;
+  end;
+end;
+
+procedure TfTabela.DBGridDblClick(Sender: TObject);
+begin
+  btMostraItems.Click;
+end;
+
+procedure TfTabela.FormataCampo(Indice:word; Mascara:String);
+var
+  NomeDesteCampo : String;
+begin
+  if (Indice >= IBEstaTabela.Fields.Count) or (Vazio(Mascara)) then Exit;
+
+  NomeDesteCampo := DBGrid.Columns[Indice].FieldName;
+  case IBEstaTabela.FieldByName(NomeDesteCampo).DataType of
+    ftAutoInc    :    TAutoIncField(IBEstaTabela.Fields.FieldByName(NomeDesteCampo)).DisplayFormat := Mascara;
+    ftInteger    :    TIntegerField(IBEstaTabela.Fields.FieldByName(NomeDesteCampo)).DisplayFormat := Mascara;
+    ftFloat      :      TFloatField(IBEstaTabela.Fields.FieldByName(NomeDesteCampo)).DisplayFormat := Mascara;
+    ftDate       :       TDateField(IBEstaTabela.Fields.FieldByName(NomeDesteCampo)).DisplayFormat := Mascara;
+    ftDateTime   :   TDateTimeField(IBEstaTabela.Fields.FieldByName(NomeDesteCampo)).DisplayFormat := Mascara;
+    ftTime       :       TTimeField(IBEstaTabela.Fields.FieldByName(NomeDesteCampo)).DisplayFormat := Mascara;
+    ftString     :     TStringField(IBEstaTabela.Fields.FieldByName(NomeDesteCampo)).EditMask      := Mascara;
+    ftBoolean    :    TBooleanField(IBEstaTabela.Fields.FieldByName(NomeDesteCampo)).DisplayValues := Mascara;
+    ftBCD        :        TBCDField(IBEstaTabela.Fields.FieldByName(NomeDesteCampo)).DisplayFormat := Mascara;
+    ftSmallint   :   TSmallintField(IBEstaTabela.Fields.FieldByName(NomeDesteCampo)).DisplayFormat := Mascara;
+    ftWord       :       TWordField(IBEstaTabela.Fields.FieldByName(NomeDesteCampo)).DisplayFormat := Mascara;
+    ftCurrency   :   TCurrencyField(IBEstaTabela.Fields.FieldByName(NomeDesteCampo)).DisplayFormat := Mascara;
+    ftBytes      :      TBytesField(IBEstaTabela.Fields.FieldByName(NomeDesteCampo)).EditMask      := Mascara;
+    ftVarBytes   :   TVarBytesField(IBEstaTabela.Fields.FieldByName(NomeDesteCampo)).EditMask      := Mascara;
+    ftBlob       :       TBlobField(IBEstaTabela.Fields.FieldByName(NomeDesteCampo)).EditMask      := Mascara;
+    ftMemo       :       TMemoField(IBEstaTabela.Fields.FieldByName(NomeDesteCampo)).EditMask      := Mascara;
+    ftGraphic    :    TGraphicField(IBEstaTabela.Fields.FieldByName(NomeDesteCampo)).EditMask      := Mascara;
+    ftWideString : TWideStringField(IBEstaTabela.Fields.FieldByName(NomeDesteCampo)).EditMask      := Mascara;
+    ftLargeInt   :   TLargeIntField(IBEstaTabela.Fields.FieldByName(NomeDesteCampo)).EditMask      := Mascara;
+    ftADT        :        TADTField(IBEstaTabela.Fields.FieldByName(NomeDesteCampo)).EditMask      := Mascara;
+    ftArray      :      TArrayField(IBEstaTabela.Fields.FieldByName(NomeDesteCampo)).EditMask      := Mascara;
+    ftReference  :  TReferenceField(IBEstaTabela.Fields.FieldByName(NomeDesteCampo)).EditMask      := Mascara;
+    ftIDispatch  :  TIDispatchField(IBEstaTabela.Fields.FieldByName(NomeDesteCampo)).EditMask      := Mascara;
+    ftGuid       :       TGuidField(IBEstaTabela.Fields.FieldByName(NomeDesteCampo)).EditMask      := Mascara;
+  end;
+end;
+
+procedure TfTabela.FormKeyDown(Sender: TObject; var Key: Word; Shift: TShiftState);
+begin
+  case key of
+    vk_Return : Close;
+    vk_F9     : btMostraItems.Click;
+  end;
+end;
+
+procedure TfTabela.btMostraItemsClick(Sender: TObject);
+var
+  ChaveSaida : Integer;
+begin
+  case MostrarOQue of
+    mqProdFornec : begin
+      AbreAviso('Abrindo Consulta de Nota', 0, 0, 0, 0);
+      Application.CreateForm(TfEntradaNotaConsulta, fEntradaNotaConsulta);
+
+      with CM do
+      begin
+        IBTabela.Active := false;
+        IBTabela.SQL.Clear;
+        IBTabela.SQL.Add('Select first 1 ENTRADA.CD_NOTA from ENTRADA');
+        IBTabela.SQL.Add('left outer join ENTRADA_ITEM NI on NI.CD_NOTA = ENTRADA.CD_NOTA');
+        IBTabela.SQL.Add('where ENTRADA.CD_FORNECEDOR = :FORNECEDOR');
+        IBTabela.SQL.Add('and NI.CD_PRODUTO = :PRODUTO');
+        IBTabela.SQL.Add('order by DT_ENTRADA desc');
+        if not IBTabela.Prepared then IBTabela.Prepare;
+        IBTabela.ParamByName('FORNECEDOR').AsInteger := IBEstaTabela.FieldByname('CD_FORNECEDOR').AsInteger;
+        IBTabela.ParamByName('PRODUTO').AsInteger := ChaveEntrada;
+        IBTabela.Active := true;
+        ChaveSaida := IBTabela.FieldByName('CD_NOTA').AsInteger;
+        fDB.FechaTT(IBTabela);
+      end;
+      fEntradaNotaConsulta.MostraEstaNota := ChaveSaida;
+
+      CM.FechaAviso;
+      fEntradaNotaConsulta.ShowModal;
+      FreeAndNil(fEntradaNotaConsulta);
+    end;
+
+    mqProdUltimasCompras : begin
+      AbreAviso('Abrindo Consulta de Nota', 0, 0, 0, 0);
+      Application.CreateForm(TfEntradaNotaConsulta, fEntradaNotaConsulta);
+      fEntradaNotaConsulta.MostraEstaNota := IBEstaTabela.FieldByName('CD_NOTA').AsInteger;
+      CM.FechaAviso;
+      fEntradaNotaConsulta.ShowModal;
+      FreeAndNil(fEntradaNotaConsulta);
+    end;
+
+    mqCliUltimasCompras : begin
+      if not Vazio(IBEstaTabela.FieldByName('NUM_DOCUMENTO').AsString) then
+      begin
+
+      end;
+    end;
+
+  end;
+end;
+
+procedure TfTabela.FormCreate(Sender: TObject);
+begin
+  IBEstaTabela.IB_Connection := DtM.IBDatabaseServer;
+  TREstaTabela.IB_Connection := DtM.IBDatabaseServer;
+end;
+
+procedure TfTabela.FormClose(Sender: TObject; var Action: TCloseAction);
+begin
+  fDB.FechaTT(IBEstaTabela);
+end;
+
+end.

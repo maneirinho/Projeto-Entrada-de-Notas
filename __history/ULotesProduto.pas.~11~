@@ -1,0 +1,158 @@
+unit ULotesProduto;
+
+interface
+
+uses
+  Windows, Messages, SysUtils, Variants, Classes, Graphics, Controls, Forms,
+  Dialogs, DB, StdCtrls, Buttons, Grids, Wwdbigrd, Wwdbgrid, ComCtrls, ExtCtrls;
+
+type
+  TFLotesItems = class(TForm)
+    PanelLotesItems: TPanel;
+    lbNMProduto: TLabel;
+    Label4: TLabel;
+    Label1: TLabel;
+    lbQtdProduto: TLabel;
+    Panel1: TPanel;
+    GroupBox4: TGroupBox;
+    Panel3: TPanel;
+    Bt_IncluirItem: TBitBtn;
+    Bt_ExcluirItem: TBitBtn;
+    Bt_Ok: TBitBtn;
+    DataSource1: TDataSource;
+    wwDBGrid1: TwwDBGrid;
+    procedure FormCreate(Sender: TObject);
+    procedure FormShow(Sender: TObject);
+    procedure Bt_OkClick(Sender: TObject);
+    procedure FormClose(Sender: TObject; var Action: TCloseAction);
+    procedure FormKeyDown(Sender: TObject; var Key: Word; Shift: TShiftState);
+  private
+    function ConfereQtds(QtdReal: Currency): Boolean;
+    { Private declarations }
+  public
+    function PegaPrecoMaxAoConsumidor(CodNota, CodProd: integer): Currency;
+    { Public declarations }
+  end;
+
+var
+  FLotesItems: TFLotesItems;
+  CD_NOTA, CD_PRODUTO: Integer;
+
+implementation
+
+uses UDataMod, UDadosProduto, UComum, DUtilit, IB_Access, IB_Components, DBFunctions,
+     MessageFunctions;
+
+{$R *.dfm}
+
+procedure TFLotesItems.Bt_OkClick(Sender: TObject);
+begin
+  if not ConfereQtds(StrToCurrZ(lbQtdProduto.Caption)) then
+    if (MessageBox(0, 'A quantidade descrita na entrada de lotes difere da quantidade de entrada! '+#13+#10+'Deseja prosseguir mesmo assim?', 'ATENÇÃO', MB_ICONEXCLAMATION or MB_YESNO) = IDNO) then
+      Exit;
+  close;
+end;
+
+procedure TFLotesItems.FormClose(Sender: TObject; var Action: TCloseAction);
+begin
+  wwDBGrid1.SaveToIniFile;
+end;
+
+procedure TFLotesItems.FormCreate(Sender: TObject);
+begin
+  lbNMProduto.Caption   := fDadosDoProduto.lbNMProduto.Caption;
+  lbQtdProduto.Caption  := PoeZeros(CurrToStr(fDadosDoProduto.edQuantidade.Value),5);
+  DataSource1.DataSet   := DtM.IBNFLotesItems;
+  CM.InicializaGrid(TeclaTaPressionada(vk_Shift), self, wwDBGrid1);
+  CD_NOTA     := DtM.IBNF.FieldByName('CD_NOTA').AsInteger;
+  CD_PRODUTO  := DtM.IBNFItems.FieldByName('CD_PRODUTO').AsInteger;
+end;
+
+procedure TFLotesItems.FormKeyDown(Sender: TObject; var Key: Word;
+  Shift: TShiftState);
+begin
+  case key of
+    vk_F2    : if (Shift = []) and (Bt_IncluirItem.Enabled)    then Bt_IncluirItem.Click;
+    vk_F4    : if (Shift = []) and (Bt_ExcluirItem.Enabled)    then Bt_ExcluirItem.Click;
+    vk_F10    : if (Shift = []) and (Bt_Ok.Enabled)            then Bt_Ok.Click;
+  end;
+end;
+
+procedure TFLotesItems.FormShow(Sender: TObject);
+begin
+  with DtM.IBNFLotesItems do
+  begin
+    Active := False;
+    SQL.Clear;
+    SQL.Add('SELECT *');
+    SQL.Add('from ENTRADA_ITEM_MEDICAMENTO');
+    SQL.Add('WHERE CD_NOTA = :CD_NOTA');
+    SQL.Add('  AND CD_PRODUTO = :CD_PRODUTO');
+    if not Prepared then Prepare;
+    ParamByName('CD_NOTA').AsInteger    := CD_NOTA;
+    ParamByName('CD_PRODUTO').AsInteger := CD_PRODUTO;
+    Active := True;
+  end;
+end;
+
+
+function TFLotesItems.ConfereQtds(QtdReal: Currency): Boolean;
+var
+  IBQ: TIB_Query;
+  IBT: TIB_Transaction;
+begin
+  Result := false;
+  try
+    AbreAviso('Aguarde, conferindo');
+    fDB.CreateQueryTransacao(DtM.IBDatabaseServer,IBQ,IBT);
+    with IBQ do
+    begin
+      Active := false;
+      SQL.Clear;
+      SQL.Add('SELECT SUM(QLOTE)');
+      SQL.Add('from ENTRADA_ITEM_MEDICAMENTO');
+      SQL.Add('WHERE CD_NOTA = :CD_NOTA');
+      SQL.Add('  AND CD_PRODUTO = :CD_PRODUTO');
+      if not Prepared then Prepare;
+      ParamByName('CD_NOTA').AsInteger    := CD_NOTA;
+      ParamByName('CD_PRODUTO').AsInteger := CD_PRODUTO;
+      Active := True;
+      if FieldByName('SUM').AsCurrency = QtdReal then
+        Result := True;
+    end;
+  finally
+    FechaAviso;
+    fDB.FreeQueryTransacao(IBQ,IBT);
+  end;
+end;
+
+function TFLotesItems.PegaPrecoMaxAoConsumidor(CodNota,CodProd: integer): Currency;
+var
+  IBQ: TIB_Query;
+  IBT: TIB_Transaction;
+begin
+  Result := 0;
+  try
+    AbreAviso('Aguarde, conferindo');
+    fDB.CreateQueryTransacao(DtM.IBDatabaseServer,IBQ,IBT);
+    with IBQ do
+    begin
+      Active := false;
+      SQL.Clear;
+      SQL.Add('SELECT MAX(VPMC)');
+      SQL.Add('from ENTRADA_ITEM_MEDICAMENTO');
+      SQL.Add('WHERE CD_NOTA = :CD_NOTA');
+      SQL.Add('  AND CD_PRODUTO = :CD_PRODUTO');
+      if not Prepared then Prepare;
+      ParamByName('CD_NOTA').AsInteger    := CD_NOTA;
+      ParamByName('CD_PRODUTO').AsInteger := CD_PRODUTO;
+      Active := True;
+      Result := FieldByName('MAX').AsCurrency;
+    end;
+  finally
+    FechaAviso;
+    fDB.FreeQueryTransacao(IBQ,IBT);
+  end;
+end;
+
+end.

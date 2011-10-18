@@ -1,0 +1,102 @@
+//ok
+unit UPrecosDoProduto;
+
+interface
+
+uses
+  Windows, Messages, SysUtils, Variants, Classes, Graphics, Controls, Forms,
+  Dialogs, StdCtrls, Mask, ExtCtrls, DB, UDataMod,
+  DUtilit, IBODataset, Grids, Wwdbigrd, Wwdbgrid, IB_Components, Buttons,
+  JvExMask, JvToolEdit, JvBaseEdits, MessageFunctions;
+
+type
+  TfPrecosDoProduto = class(TForm)
+    Panel1: TPanel;
+    Label1: TLabel;
+    Panel2: TPanel;
+    Panel3: TPanel;
+    wwDBGrid1: TwwDBGrid;
+    IBPrecos: TIBOQuery;
+    DataSource1: TDataSource;
+    IBOTransaction1: TIBOTransaction;
+    btOk: TBitBtn;
+    IBPrecosCD_VENDA: TSmallintField;
+    IBPrecosNM_VENDA: TStringField;
+    IBPrecosPRECO: TBCDField;
+    LabelNomeDoProduto: TLabel;
+    EditPrecoVenda: TJvCalcEdit;
+    procedure FormShow(Sender: TObject);
+    procedure btOkClick(Sender: TObject);
+    procedure wwDBGrid1CalcCellColors(Sender: TObject; Field: TField;
+      State: TGridDrawState; Highlight: Boolean; AFont: TFont;
+      ABrush: TBrush);
+    procedure FormCreate(Sender: TObject);
+    procedure FormClose(Sender: TObject; var Action: TCloseAction);
+  private
+    { Private declarations }
+  public
+    CD_PRODUTO : Integer;
+  end;
+
+var
+  fPrecosDoProduto: TfPrecosDoProduto;
+
+implementation
+
+uses UComum, DBFunctions;
+
+{$R *.dfm}
+
+procedure TfPrecosDoProduto.FormShow(Sender: TObject);
+var
+  StrPreco : String;
+begin
+  with CM do
+  begin
+    IBTabela.Active := false;
+    IBTabela.SQL.Clear;
+    IBTabela.SQL.Add('Select NM_PRODUTO, PRECOVENDA from PRODUTOS where CD_PRODUTO = '+IntToStr(CD_PRODUTO));
+    IBTabela.Active := true;
+    EditPrecoVenda.Value := IBTabela.FieldByName('PRECOVENDA').AsCurrency;
+    LabelNomeDoProduto.Caption := IBTabela.FieldByName('NM_PRODUTO').AsString; 
+    fDB.FechaTT(IBTabela);
+  end;
+
+  StrPreco := SubstituiChar(FloatToStr(EditPrecoVenda.Value), [','], '.', true);
+  IBPrecos.Active := false;
+  IBPrecos.SQL.Clear;
+  IBPrecos.SQL.Add('select CD_VENDA, NM_VENDA, TP.PRECO as PRECO');
+  IBPrecos.SQL.Add('from CODIGOVENDA');
+  IBPrecos.SQL.Add('left outer join SP_TIPOPRECO('+IntToStr(CD_PRODUTO)+', CD_VENDA) TP on 1=1');
+  IBPrecos.SQL.Add('where INATIVO <> ''V''');
+  fDB.SalvaSQL(IBPrecos.SQL);
+  if not IBPrecos.Prepared then IBPrecos.Prepare;
+  IBPrecos.Active := true;
+  btOk.SetFocus;
+
+  FechaAviso;
+  Screen.Cursor := crDefault;
+end;
+
+procedure TfPrecosDoProduto.btOkClick(Sender: TObject);
+begin
+  Close;
+end;
+
+procedure TfPrecosDoProduto.wwDBGrid1CalcCellColors(Sender: TObject; Field: TField;
+  State: TGridDrawState; Highlight: Boolean; AFont: TFont; ABrush: TBrush);
+begin
+  if Field.FieldName = 'PRECO' then AFont.Style := [fsBold];
+end;
+
+procedure TfPrecosDoProduto.FormCreate(Sender: TObject);
+begin
+  IBPrecos.IB_Connection := DtM.IBDatabaseServer;
+end;
+
+procedure TfPrecosDoProduto.FormClose(Sender: TObject; var Action: TCloseAction);
+begin
+  fDB.FechaTT(IBPrecos);
+end;
+
+end.

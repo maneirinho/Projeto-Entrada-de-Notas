@@ -1,0 +1,58 @@
+object fBuscaXML: TfBuscaXML
+  Left = 0
+  Top = 0
+  Caption = 'Busca XML Entrada de Notas'
+  ClientHeight = 269
+  ClientWidth = 396
+  Color = clWindow
+  Ctl3D = False
+  Font.Charset = DEFAULT_CHARSET
+  Font.Color = clWindowText
+  Font.Height = -11
+  Font.Name = 'Tahoma'
+  Font.Style = []
+  OldCreateOrder = False
+  PixelsPerInch = 96
+  TextHeight = 13
+  object Panel1: TPanel
+    Left = 0
+    Top = 0
+    Width = 396
+    Height = 129
+    Align = alTop
+    TabOrder = 0
+    ExplicitWidth = 575
+    object Label2: TLabel
+      Left = 8
+      Top = 10
+      Width = 112
+      Height = 13
+      Caption = 'Diret'#243'rio dos Arqs. XML'
+    end
+    object Label1: TLabel
+      Left = 8
+      Top = 56
+      Width = 31
+      Height = 13
+      Caption = 'Chave'
+    end
+    object EditDirXML: TJvDirectoryEdit
+      Left = 8
+      Top = 29
+      Width = 377
+      Height = 21
+      DialogKind = dkWin32
+      InitialDir = 'C:\'
+      TabOrder = 0
+    end
+    object EditChaveNFE: TEdit
+      Left = 8
+      Top = 75
+      Width = 377
+      Height = 21
+      MaxLength = 44
+      NumbersOnly = True
+      TabOrder = 1
+    end
+  end
+end

@@ -1,0 +1,153 @@
+unit UEntraCreditos;
+
+interface
+
+uses
+  Windows, Messages, SysUtils, Variants, Classes, Graphics, Controls, Forms,
+  Dialogs, StdCtrls, Buttons, JvExControls, JvComponent, JvGradient,
+  UComum, ExtCtrls;
+
+type
+  TfEntraCreditos = class(TForm)
+    Edit1: TEdit;
+    Edit2: TEdit;
+    Edit3: TEdit;
+    Edit4: TEdit;
+    Label1: TLabel;
+    BitBtn1: TBitBtn;
+    BitBtn2: TBitBtn;
+    JvGradient1: TJvGradient;
+    Image1: TImage;
+    Label2: TLabel;
+    LabelID: TLabel;
+    procedure FormKeyPress(Sender: TObject; var Key: Char);
+    procedure BitBtn2Click(Sender: TObject);
+    procedure BitBtn1Click(Sender: TObject);
+    procedure Edit1Change(Sender: TObject);
+    procedure FormCreate(Sender: TObject);
+    procedure FormShow(Sender: TObject);
+  private
+    { Private declarations }
+  public
+    Modo : TModos;
+  end;
+
+var
+  fEntraCreditos: TfEntraCreditos;
+
+implementation
+
+uses DUtilit, UValidade, UDataModule, UValidacao;
+
+{$R *.dfm}
+
+procedure TfEntraCreditos.FormKeyPress(Sender: TObject; var Key: Char);
+begin
+  if (key = #13) then
+  begin
+    Key := #0;
+    Perform(Wm_NextDlgCtl, 0, 0);
+  end;
+end;
+
+procedure TfEntraCreditos.BitBtn2Click(Sender: TObject);
+begin
+  Close;
+end;
+
+procedure TfEntraCreditos.BitBtn1Click(Sender: TObject);
+var
+  ChaveAntiga, ChaveValida : Boolean;
+  S : String;
+  V1, V2, V3, V4 :String;
+  msgTentativas: String;
+begin
+  ChaveValida := TRUE;
+  ChaveAntiga := FALSE;
+  try
+    Screen.Cursor := crHourGlass;
+    if not VerificaDFValido(Edit1.Text+Edit2.Text+Edit3.Text+Edit4.Text) then
+    begin
+      ChaveValida := false;
+      Exit;
+    end;
+
+    mVAL.PegaInfoCreditos;
+    S := DescriptografaCreditos(Edit1.Text+Edit2.Text+Edit3.Text+Edit4.Text);
+    if not VerificaValoresValidos(S, RegCreditos.Sistema, RegCreditos.ID, Modo=mdAlteracao) then
+    begin
+      ChaveValida := false;
+      Exit;
+    end;
+
+    CRED_PegaDadosDaChave(S, V1, V2, V3, V4);
+    try   // Se esta chave não pertence a este cliente...
+      if (Modo = mdAlteracao) and (StrToInt(V2) <> RegCreditos.ID) then
+      begin
+        ChaveValida := false;
+        Exit;
+      end;
+      V3 := V3[1]+V3[2]+'/'+V3[3]+V3[4]+'/'+V3[5]+V3[6];
+
+         // Se esta é uma chave antiga...
+      if StrToDate(V3) <= CM.NowDoServidor then
+      begin
+        ChaveAntiga := true;
+        Exit;
+      end;
+
+      Screen.Cursor := crHourGlass;
+      CM.AbreAviso('Atribuindo Créditos ao Sistema');
+
+      mVal.ColocaCreditos(StrToDate(V3), StrToInt(V4), StrToInt(V2), modo=mdInclusao);
+      mVal.PegaInfoCreditos;
+      CM.FechaAviso;
+      MessageBox(0, PChar('Ok.'+#13+#10+ Format('Créditos válidos até %s', [FormatDateTime('dd/mm/yyyy', RegCreditos.Validade)])), 'Créditos Inseridos', MB_ICONINFORMATION or MB_OK or MB_APPLMODAL);
+    except
+      CM.FechaAviso;
+    end;
+
+    TentativasEntraCreditos := 0;
+  finally
+    if not ChaveValida then
+    begin
+      inc(TentativasEntraCreditos);
+      msgTentativas := '';
+      if TentativasEntraCreditos > 1 then
+        msgTentativas := #13+#10+format('%dª Tentativa.', [TentativasEntraCreditos]);
+      MessageBox(0, PChar('Esta não é uma chave válida!'+msgTentativas), 'Chave Inválida', MB_ICONSTOP or MB_OK or MB_APPLMODAL);
+    end;
+
+    if ChaveAntiga then
+      MessageBox(0, PChar('Esta é uma chave antiga!'+msgTentativas), 'Chave Inválida', MB_ICONSTOP or MB_OK or MB_APPLMODAL);
+
+    if TentativasEntraCreditos >= 5 then
+    begin
+      MessageBox(0, 'Sistema Finalizado', 'Sistema Finalizado', MB_ICONWARNING or MB_OK or MB_APPLMODAL);
+      Application.Terminate;
+    end;
+    CM.FechaAviso;
+    Screen.Cursor := crDefault;
+    Close;
+  end;
+end;
+
+procedure TfEntraCreditos.Edit1Change(Sender: TObject);
+begin
+  if length(TEdit(sender as TControl).Text) = 5 then
+    Perform(Wm_NextDlgCtl, 0, 0);
+end;
+
+procedure TfEntraCreditos.FormCreate(Sender: TObject);
+begin
+  Modo := mdAlteracao;
+  LabelID.Caption := PoeZeros(RegCreditos.ID, 3);
+end;
+
+procedure TfEntraCreditos.FormShow(Sender: TObject);
+begin
+  //CM.FechaAviso;
+  Screen.Cursor := crDefault;
+end;
+
+end.

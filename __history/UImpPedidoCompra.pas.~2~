@@ -1,0 +1,73 @@
+unit UImpPedidoCompra;
+
+interface
+
+uses
+  Windows, Messages, SysUtils, Variants, Classes, Graphics, Controls, Forms,
+  UComum, DUtilit, Dialogs, StdCtrls, Buttons, ExtCtrls;
+
+const
+  EstaChave = '\PedidosDeCompra';
+
+type
+  TfImpPedidoCompra = class(TForm)
+    RadioGroup1: TRadioGroup;
+    BitBtn1: TBitBtn;
+    BitBtn2: TBitBtn;
+    procedure BitBtn2Click(Sender: TObject);
+    procedure BitBtn1Click(Sender: TObject);
+    procedure FormCreate(Sender: TObject);
+    procedure FormShow(Sender: TObject);
+  private
+    ChaveDoRegistro : String;
+  public
+    { Public declarations }
+  end;
+
+var
+  fImpPedidoCompra: TfImpPedidoCompra;
+
+implementation
+
+uses UConstVar, UDataMod;
+
+{$R *.dfm}
+
+procedure TfImpPedidoCompra.BitBtn2Click(Sender: TObject);
+begin
+  Close;
+end;
+
+procedure TfImpPedidoCompra.BitBtn1Click(Sender: TObject);
+begin
+  with Relatorios do
+  begin
+    try
+      Referencia := DtM.IBPedidoCompra.FieldByName('NUM_PEDIDO').AsInteger;
+      case RadioGroup1.ItemIndex of
+        0 : QualRelatorio := rlPedidoCompraGer;
+        1 : QualRelatorio := rlPedidoCompra;
+      end;
+      CodigoDoRelatorio := '0';
+      ReportSystem1.Execute;
+    finally
+      SalvaIntegerNoRegistro(ChaveDoRegistro, 'TipoImpressao', RadioGroup1.ItemIndex);
+    end;
+  end;
+  Close;
+end;
+
+procedure TfImpPedidoCompra.FormCreate(Sender: TObject);
+begin
+  ChaveDoRegistro := RegChaveForms+EstaChave;
+  RadioGroup1.ItemIndex := LeIntegerDoRegistro(ChaveDoRegistro, 'TipoImpressao', 0);
+end;
+
+procedure TfImpPedidoCompra.FormShow(Sender: TObject);
+begin
+  RadioGroup1.Buttons[RadioGroup1.ItemIndex].SetFocus;
+  CM.FechaAviso;
+  Screen.Cursor := crDefault;
+end;
+
+end.

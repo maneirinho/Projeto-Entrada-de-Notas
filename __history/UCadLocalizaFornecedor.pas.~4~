@@ -1,0 +1,60 @@
+unit UCadLocalizaFornecedor;
+
+interface
+
+uses
+  Windows, Messages, SysUtils, Variants, Classes, Graphics, Controls, Forms,
+  Dialogs, StdCtrls, Buttons, JvExControls, JvGradient;
+
+type
+  TfCadLocalizaFornecedor = class(TForm)
+    JvGradient1: TJvGradient;
+    btnLocalizar: TBitBtn;
+    btnCadastrar: TBitBtn;
+    procedure btnLocalizarClick(Sender: TObject);
+    procedure btnCadastrarClick(Sender: TObject);
+  private
+    { Private declarations }
+  public
+    { Public declarations }
+  end;
+
+var
+  fCadLocalizaFornecedor: TfCadLocalizaFornecedor;
+
+implementation
+
+uses UConsultaListaNotas, UNovaEntradaNotas, UConstVar, UModPesquisa,
+  UCadastroPadrao, UCadFornecedores;
+
+{$R *.dfm}
+
+procedure TfCadLocalizaFornecedor.btnCadastrarClick(Sender: TObject);
+begin
+  Application.CreateForm(TfCadFornecedores, fCadFornecedores);
+  fCadFornecedores.EsteCadastro := cadFornecedores;
+  AbreCad.EntraNaInclusao := True;
+  fCadFornecedores.RegDadosInclusao.CGC :=
+
+
+  fCadFornecedores.ShowModal;
+  FreeAndNil(fCadFornecedores);
+
+
+
+end;
+
+procedure TfCadLocalizaFornecedor.btnLocalizarClick(Sender: TObject);
+begin
+  if (fNovaEntradaNota.Modo = mdInclusao) or (fNovaEntradaNota.Modo = mdInclusaoXML) or (fNovaEntradaNota.Modo = mdAlteracao) then
+  begin
+    ItemEsc := mPesq.Pesquisa(pqFornecedores, [mdInclusao, mdInclusaoXML, mdAlteracao], nil, fNovaEntradaNota.EditNomeFornecedor.Text);
+    if ItemEsc.CodInt <> CodigoVazio then
+      fNovaEntradaNota.EditCodFornecedor.Text := ItemEsc.CodExt;
+    fNovaEntradaNota.EditNumNota.SetFocus;
+  end;
+end;
+
+
+
+end.

@@ -1,0 +1,213 @@
+//ok
+unit UEditaGrade;
+
+interface
+
+uses
+  Windows, Messages, SysUtils, Variants, Classes, Graphics, Controls, Forms,
+  Dialogs, Mask, JvExMask, JvToolEdit, JvBaseEdits, StdCtrls, Buttons, UComum,
+  UConstVar, ExtCtrls, MessageFunctions;
+
+type
+  TOrigem =(orCadastro, orEntrada);
+
+  TfEditaGrade = class(TForm)
+    edCodigo: TEdit;
+    lbCodigo: TLabel;
+    edDescricao: TEdit;
+    lbDescricao: TLabel;
+    lbEstoque: TLabel;
+    edEstoque: TJvCalcEdit;
+    bt_GeraCodigo: TSpeedButton;
+    Panel1: TPanel;
+    Panel2: TPanel;
+    btOk: TBitBtn;
+    btCancelar: TBitBtn;
+    lbQuantDigitos: TLabel;
+    procedure FormCreate(Sender: TObject);
+    procedure btCancelarClick(Sender: TObject);
+    procedure btOkClick(Sender: TObject);
+    procedure FormKeyPress(Sender: TObject; var Key: Char);
+    procedure edDescricaoEnter(Sender: TObject);
+    procedure bt_GeraCodigoClick(Sender: TObject);
+    procedure edCodigoChange(Sender: TObject);
+    procedure edCodigoExit(Sender: TObject);
+    procedure edCodigoEnter(Sender: TObject);
+    procedure FormShow(Sender: TObject);
+  private
+    function TemErro: boolean;
+  public
+    Origem     : TOrigem;
+    Modo       : TModos;
+    CD_GRADE   : Integer;
+    CD_PRODUTO : Integer;
+    CD_GRUPO   : Integer;
+    BotaoPressionado : TBotaoPressionado;
+  end;
+
+var
+  fEditaGrade: TfEditaGrade;
+
+implementation
+
+uses DUtilit, DBFunctions;
+
+{$R *.dfm}
+
+procedure TfEditaGrade.FormCreate(Sender: TObject);
+begin
+  BotaoPressionado := bpCancelado;
+  Origem     := orCadastro;
+  Modo       := mdInclusao;
+  CD_GRADE   := 0;
+  CD_PRODUTO := 0;
+  CD_GRUPO   := 0;
+
+  lbCodigo.Caption := ConfigCadastro.GradeCampoCodigo;
+  lbDescricao.Caption := ConfigCadastro.GradeCampoDescricao;
+end;
+
+procedure TfEditaGrade.btCancelarClick(Sender: TObject);
+begin
+  BotaoPressionado := bpCancelado;
+  Close;
+end;
+
+procedure TfEditaGrade.btOkClick(Sender: TObject);
+begin
+  if TemErro then Exit;
+
+  BotaoPressionado := bpOk;
+  Close;
+end;
+
+function TfEditaGrade.TemErro:boolean;
+var
+  JaTem : boolean;
+begin
+  result := false;
+
+  if (not result) and (Vazio(edCodigo.Text)) then
+  begin
+    result := true;
+    MensagemDeAtencao('É necessário que o campo CÓDIGO esteja preenchido');
+    edCodigo.SetFocus;
+  end;
+
+  if (not result) and (not ENumeroInteiro(TiraEspacos(edCodigo.Text)[1])) then
+  begin
+    result := true;
+    MensagemDeAtencao('O primeiro caracter do código deve ser sempre um caracter numérico');
+    edCodigo.SetFocus;
+  end;
+
+  if (edDescricao.Visible) and (not result) and (Vazio(edDescricao.Text)) then
+  begin
+    result := true;
+    MensagemDeAtencao('É necessário que o campo DESCRIÇÃO esteja preenchido');
+    edDescricao.SetFocus;
+  end;
+
+  if (Origem = orCadastro) and (not result) then
+  begin
+    with CM do
+    begin
+      IBTabela.Active := false;
+      IBTabela.SQL.Clear;
+      IBTabela.SQL.Add('Select COD_BARRAS from PRODUTOS');
+      IBTabela.SQL.Add('where COD_BARRAS = '+QuotedStr(EdCodigo.Text));
+      IBTabela.SQL.Add('union');
+      IBTabela.SQL.Add('Select COD_BARRAS from GRADES');
+      IBTabela.SQL.Add('where COD_BARRAS = '+QuotedStr(EdCodigo.Text));
+      if Modo = mdAlteracao then
+        IBTabela.SQL.Add('and CD_GRADE <> '+IntToStr(CD_GRADE));
+
+      if not IBTabela.Prepared then IBTabela.Prepare;
+      IBTabela.Active := true;
+      JaTem := IBTabela.RecordCount > 0;
+      fDB.FechaTT(IBTabela);
+    end;
+
+    if JaTem then
+    begin
+      result := true;
+      MensagemDeErro('Código já cadastrado');
+      edCodigo.SetFocus;
+    end;
+  end;
+
+  if (Origem = orCadastro) and (not result) then
+  begin
+    with CM do
+    begin
+      IBTabela.Active := false;
+      IBTabela.SQL.Clear;
+      IBTabela.SQL.Add('Select NM_GRADE from GRADES');
+      IBTabela.SQL.Add('where NM_GRADE = '+QuotedStr(edDescricao.Text));
+      IBTabela.SQL.Add('and CD_PRODUTO = '+IntToStr(CD_PRODUTO));
+      if Modo = mdAlteracao then
+        IBTabela.SQL.Add('and CD_GRADE <> '+IntToStr(CD_GRADE));
+
+      if not IBTabela.Prepared then IBTabela.Prepare;
+      IBTabela.Active := true;
+      JaTem := IBTabela.RecordCount > 0;
+      fDB.FechaTT(IBTabela);
+    end;
+
+    if JaTem then
+    begin
+      result := true;
+      MensagemDeErro('Grade já cadastrada para este produto');
+      edCodigo.SetFocus;
+    end;
+  end;
+
+end;
+
+procedure TfEditaGrade.FormKeyPress(Sender: TObject; var Key: Char);
+begin
+  if (key = #13) then
+  begin
+    Key := #0;
+    Perform(Wm_NextDlgCtl, 0, 0);
+  end;
+end;
+
+procedure TfEditaGrade.edDescricaoEnter(Sender: TObject);
+begin
+  if Vazio(edCodigo.Text) then
+    bt_GeraCodigo.Click;
+end;
+
+procedure TfEditaGrade.bt_GeraCodigoClick(Sender: TObject);
+begin
+  edCodigo.Text := CM.GeraCodigo;
+end;
+
+procedure TfEditaGrade.edCodigoChange(Sender: TObject);
+begin
+  lbQuantDigitos.Caption := PoeZeros(length(edCodigo.Text), 2)+' dígitos';
+end;
+
+procedure TfEditaGrade.edCodigoExit(Sender: TObject);
+begin
+  lbQuantDigitos.Visible := false;
+  edCodigo.Text := TiraEspacos(edCodigo.Text);
+
+  if length(edCodigo.Text) > 13 then
+    edCodigo.Text := copy(edCodigo.Text, length(edCodigo.Text)-12, 13);
+end;
+
+procedure TfEditaGrade.edCodigoEnter(Sender: TObject);
+begin
+  edCodigoChange(self);
+  lbQuantDigitos.Visible := true;
+end;
+
+procedure TfEditaGrade.FormShow(Sender: TObject);
+begin
+  FechaAviso;
+  Screen.Cursor := crDefault;
+end;
+
+end.

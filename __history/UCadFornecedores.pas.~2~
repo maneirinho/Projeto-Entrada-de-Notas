@@ -1,0 +1,445 @@
+unit UCadFornecedores;
+
+interface
+
+uses
+  Windows, Messages, SysUtils, Variants, Classes, Graphics, Controls, Forms,
+  Dialogs, UCadastroPadrao, DB, IBODataset, IB_Components, 
+  Gradpan, Mask, DBCtrls, StdCtrls, JvExStdCtrls, JvEdit, JvExControls,
+  JvSpeedButton, Grids, DBGrids, Buttons, ExtCtrls, wwdbedit,
+  ComCtrls, JvExMask, JvToolEdit, JvDBControls, JvLabel, Wwdbigrd, Wwdbgrid;
+
+type
+  TfCadFornecedores = class(TfCadastroPadrao)
+    PageControl1: TPageControl;
+    TabSheet1: TTabSheet;
+    Label1: TLabel;
+    Label2: TLabel;
+    Label3: TLabel;
+    Label9: TLabel;
+    Label10: TLabel;
+    Label11: TLabel;
+    Label12: TLabel;
+    Label13: TLabel;
+    Label14: TLabel;
+    Label15: TLabel;
+    Label17: TLabel;
+    Label26: TLabel;
+    Label42: TLabel;
+    Label4: TLabel;
+    Label16: TLabel;
+    DBEdit2: TDBEdit;
+    DBEdit3: TDBEdit;
+    DBEdit5: TDBEdit;
+    DBEdit6: TDBEdit;
+    edNmMunicipio: TDBEdit;
+    edEstado: TDBComboBox;
+    DBEdit9: TDBEdit;
+    DBEdit10: TDBEdit;
+    DBEdit20: TDBEdit;
+    DBEdit33: TDBEdit;
+    DBEdit11: TDBEdit;
+    GroupBox1: TGroupBox;
+    Label35: TLabel;
+    Label5: TLabel;
+    Label6: TLabel;
+    DBEdit25: TDBEdit;
+    DBEdit1: TDBEdit;
+    DBEdit4: TDBEdit;
+    edCep: TwwDBEdit;
+    TabSheet4: TTabSheet;
+    DBMemo1: TDBMemo;
+    DBDateEdit1: TJvDBDateEdit;
+    chInativo: TDBCheckBox;
+    edCNPJ: TDBEdit;
+    TabDiversos: TTabSheet;
+    GroupBox8: TGroupBox;
+    DBMemo2: TDBMemo;
+    wwDBGrid1: TwwDBGrid;
+    Label7: TLabel;
+    btAdicionarRepresentante: TBitBtn;
+    BitBtn1: TBitBtn;
+    IBRepresentantes: TIBOQuery;
+    TrRepresentantes: TIBOTransaction;
+    IBRepresentantesCD_REPRESENTANTE: TIntegerField;
+    IBRepresentantesNM_REPRESENTANTE: TStringField;
+    DataSource2: TDataSource;
+    IBRepresentantesCD_FORNECEDOR: TIntegerField;
+    btProdutos: TBitBtn;
+    DBEdit21: TDBEdit;
+    Label8: TLabel;
+    DBEdit8: TDBEdit;
+    Label18: TLabel;
+    DBEdit12: TDBEdit;
+    edCdMunicipio: TDBEdit;
+    btPesquisaMunicipio: TSpeedButton;
+    DBRadioGroup1: TDBRadioGroup;
+    procedure Bt_IncluirClick(Sender: TObject); 
+    procedure FormCreate(Sender: TObject);
+    procedure DBEdit2Exit(Sender: TObject);
+    procedure edNmMunicipioExit(Sender: TObject);
+    procedure FormShow(Sender: TObject);
+    procedure DataSource1DataChange(Sender: TObject; Field: TField);
+    procedure BitBtn1Click(Sender: TObject);
+    procedure btAdicionarRepresentanteClick(Sender: TObject);
+    procedure btProdutosClick(Sender: TObject);
+    procedure Bt_GravarClick(Sender: TObject);
+    procedure edCdMunicipioChange(Sender: TObject);
+    procedure edCdMunicipioExit(Sender: TObject);
+    procedure edCdMunicipioKeyDown(Sender: TObject; var Key: Word; Shift: TShiftState);
+    procedure edCdMunicipioKeyPress(Sender: TObject; var Key: Char);
+    procedure btPesquisaMunicipioClick(Sender: TObject);
+    procedure DBRadioGroup1Change(Sender: TObject);
+  private
+    PodeOnChangergPessoa : boolean;
+    PessoaEscolhida : char;
+    FiltroPesqMunicipio : String;
+    procedure IniciaValores; override;
+    function  TemErroNaGravacao: boolean; override;
+    procedure HabilitaDesabilitaCampos;
+  public
+    { Public declarations }
+  end;
+
+var
+  fCadFornecedores: TfCadFornecedores;
+
+implementation
+
+uses UComum, DUtilit, UDataMod, UProdutosDoFornecedor, UModPesquisa,
+     UConstVar, DBFunctions;
+
+{$R *.dfm}
+
+procedure TfCadFornecedores.IniciaValores;
+begin
+  if EstaTabela.FieldByName('EXPORTAR').Value = null then EstaTabela.FieldByName('EXPORTAR').AsString := 'F';
+  if EstaTabela.FieldByName('INATIVO').Value = null  then EstaTabela.FieldByName('INATIVO').AsString := 'F';
+  if EstaTabela.FieldByName('PESSOA').Value = null   then EstaTabela.FieldByName('PESSOA').AsString := 'J';
+end;
+
+function TfCadFornecedores.TemErroNaGravacao: boolean;
+var
+  JaTem : boolean;
+begin
+  result := false;
+  if (not result) and (Vazio(DBEdit2.Text)) then
+  begin
+    CM.MensagemDeAtencao('É necessário que o campo RAZÃO SOCIAL esteja preenchido');
+    result := true;
+    PageControl1.ActivePage := TabSheet1;
+    DBEdit2.SetFocus;
+  end;
+
+  if (not result) then
+  begin
+    with CM do
+    begin
+      IBTabela.Active := false;
+      IBTabela.SQL.Clear;
+      IBTabela.SQL.Add('Select NM_FORNECEDOR from FORNECEDORES');
+      IBTabela.SQL.Add('where NM_FORNECEDOR = '+QuotedStr(DBEdit2.Text));
+      if Modo = mdAlteracao then
+        IBTabela.SQL.Add('and CD_FORNECEDOR <> '+EstaTabela.FieldByName('CD_FORNECEDOR').AsString);
+
+      if not IBTabela.Prepared then IBTabela.Prepare;
+      IBTabela.Active := true;
+      JaTem := IBTabela.RecordCount > 0;
+      fDB.FechaTT(IBTabela);
+    end;
+    if JaTem then
+    begin
+      CM.MensagemDeErro('A Razão Social para esta empresa já foi cadastrada');
+      result := true;
+      PageControl1.ActivePage := TabSheet1;
+      DBEdit2.SetFocus;
+    end;
+  end;
+                                 
+  if (not result) and (not vazio(edCNPJ.Text)) then
+  begin
+    if not CGCValido(edCNPJ.Text) then
+    begin
+      result := true;
+      CM.MensagemDeErro('CNPJ inválido');
+      PageControl1.ActivePage := TabSheet1;
+      edCNPJ.SetFocus;
+    end;
+
+    if (not result) then
+    begin
+      with CM do
+      begin
+        IBTabela.Active := false;
+        IBTabela.SQL.Clear;
+        IBTabela.SQL.Add('Select CGC from FORNECEDORES');
+        IBTabela.SQL.Add('where CGC = '+QuotedStr(edCNPJ.Text));
+        if Modo = mdAlteracao then
+          IBTabela.SQL.Add('and CD_FORNECEDOR <> '+EstaTabela.FieldByName('CD_FORNECEDOR').AsString);
+
+        if not IBTabela.Prepared then IBTabela.Prepare;
+        IBTabela.Active := true;
+        JaTem := IBTabela.RecordCount > 0;
+        fDB.FechaTT(IBTabela);
+      end;
+      if JaTem then
+      begin
+        CM.MensagemDeErro('CNPJ já cadastrado');
+        result := true;
+        PageControl1.ActivePage := TabSheet1;
+        edCNPJ.SetFocus;
+      end;
+    end;
+  end;
+  DeuErro := result;
+  Inherited TemErroNaGravacao;
+end;
+
+procedure TfCadFornecedores.Bt_IncluirClick(Sender: TObject);
+begin
+  inherited;
+  try
+    PageControl1.ActivePage := TabSheet1;
+    dbedit2.SetFocus;
+  except
+  end;
+end;
+
+procedure TfCadFornecedores.FormCreate(Sender: TObject);
+begin
+  EstaChave    := '\CadFornecedores';
+  NomeDaTabela := 'FORNECEDORES';
+  EstaTabela   := IBCadastro;
+  Select       := 'Select * from FORNECEDORES ';
+  Campo.CodigoInt := 'CD_FORNECEDOR';
+  Campo.CodigoStr := 'CD_FORNECEDOR';
+  Campo.Descricao := 'NM_FORNECEDOR';
+  Filtro          := NomeDaTabela+'.'+Campo.CodigoInt+' > 0';
+  CadObjeto       := 'Fornecedor';
+  EsteCadastro    := cadFornecedores;
+
+  LimpaCamposOrdenados;
+  IncluiCampoOrdenado('CD_FORNECEDOR', 'Código');
+  IncluiCampoOrdenado('NM_FORNECEDOR', 'Nome / Razão Soc.');
+  IncluiCampoOrdenado('NOMEFANTASIA',  'Nome Fant./Apelido');
+  IncluiCampoOrdenado('CGC',           'CNPJ / CPF');
+  PodeOnChangergPessoa := true;
+
+  inherited;
+end;
+
+procedure TfCadFornecedores.DBEdit2Exit(Sender: TObject);
+begin
+  if (Modo in [mdInclusao, mdAlteracao]) and (Vazio(DBEdit3.Text)) then
+    EstaTabela.FieldByName('NOMEFANTASIA').AsString := PrimeiraPalavra(DBEdit2.Text);
+end;
+
+procedure TfCadFornecedores.edNmMunicipioExit(Sender: TObject);
+begin
+  if edNmMunicipio.Text = 'SJ' then
+  begin
+    edcdMunicipio.Text := '3305158';
+    edNmMunicipio.Text := 'SÃO JOSÉ DO VALE DO RIO PRETO';
+    edEstado.ItemIndex := LocalizaTString(edEstado.Items, 'RJ', []);
+    edCep.Text := '25780-000';
+    DBEdit9.SetFocus;
+  end;
+end;
+
+procedure TfCadFornecedores.FormShow(Sender: TObject);
+begin
+  DBEdit2.SetFocus;
+  PageControl1.ActivePage := TabSheet1;
+  inherited;
+end;
+
+procedure TfCadFornecedores.DataSource1DataChange(Sender: TObject; Field: TField);
+begin
+  inherited;
+  IBRepresentantes.Active := false;
+  IBRepresentantes.ParamByName('CD_FORNECEDOR').AsInteger := IBCadastro.FieldByName('CD_FORNECEDOR').AsInteger;
+  IBRepresentantes.Active := true;
+end;
+
+procedure TfCadFornecedores.BitBtn1Click(Sender: TObject);
+begin
+  if CM.MensagemDeConfirmacao('Deseja realmente remover o vínculo deste Representante com o Fornecedor selecionado?') <> mrYes then exit;
+  with CM do
+  begin
+    if not IBTabela.IB_Transaction.InTransaction then IBTabela.IB_Transaction.StartTransaction; 
+    try
+      IBTabela.Active := false;
+      IBTabela.SQL.Clear;
+      IBTabela.SQL.Add('Delete from REPRESENT_FORNEC');
+      IBTabela.SQL.Add('where CD_REPRESENTANTE = :CD_REPRESENTANTE');
+      IBTabela.SQL.Add('and   CD_FORNECEDOR = :CD_FORNECEDOR');
+      if not IBTabela.Prepared then IBTabela.Prepare;
+      IBTabela.ParamByName('CD_REPRESENTANTE').AsInteger := IBRepresentantes.FieldByName('CD_REPRESENTANTE').AsInteger;
+      IBTabela.ParamByName('CD_FORNECEDOR').AsInteger := IBRepresentantes.FieldByName('CD_FORNECEDOR').AsInteger;
+      IBTabela.ExecSQL;
+      IBTabela.IB_Transaction.Commit;
+      IBRepresentantes.Refresh;
+    except
+      IBTabela.IB_Transaction.Rollback;
+    end;
+  end;
+end;
+
+procedure TfCadFornecedores.btAdicionarRepresentanteClick(Sender: TObject);
+begin
+  ItemEsc := mPesq.Pesquisa(pqRepresentantes, [mdInclusao, mdAlteracao]);
+  if ItemEsc.CodInt > 0 then
+  begin
+    with CM do
+    begin
+      if not IBTabela.IB_Transaction.InTransaction then IBTabela.IB_Transaction.StartTransaction;
+      try
+        IBTabela.Active := false;
+        IBTabela.SQL.Clear;
+        IBTabela.SQL.Add('insert into REPRESENT_FORNEC');
+        IBTabela.SQL.Add('( CD_REPRESENTANTE,  CD_FORNECEDOR)');
+        IBTabela.SQL.Add('values');
+        IBTabela.SQL.Add('(:CD_REPRESENTANTE, :CD_FORNECEDOR)');
+        if not IBTabela.Prepared then IBTabela.Prepare;
+        IBTabela.ParamByName('CD_REPRESENTANTE').AsInteger := ItemEsc.CodInt;
+        IBTabela.ParamByName('CD_FORNECEDOR').AsInteger := IBCadastro.FieldByName('CD_FORNECEDOR').AsInteger;
+        IBTabela.ExecSQL;
+        IBTabela.IB_Transaction.Commit;
+        IBRepresentantes.Refresh;
+        try IBRepresentantes.Locate('CD_REPRESENTANTE', ItemEsc.CodInt, []); except end;
+      except
+        IBTabela.IB_Transaction.Rollback;
+      end;
+    end;
+  end;
+end;
+
+procedure TfCadFornecedores.btProdutosClick(Sender: TObject);
+begin
+  Application.CreateForm(TfProdutosDoFornecedor, fProdutosDoFornecedor);
+  fProdutosDoFornecedor.CodFornecedor := IBCadastro.FieldByName('CD_FORNECEDOR').AsInteger;
+  fProdutosDoFornecedor.ShowModal;
+  FreeAndNil(fProdutosDoFornecedor);
+end;
+
+procedure TfCadFornecedores.Bt_GravarClick(Sender: TObject);
+var
+  Codigo : Integer;
+begin
+  if Modo = mdInclusao then
+  begin
+    Codigo := CM.CodigoWeb(fDB.GetValorDoGenerator(DtM.IBDatabaseServer,'GEN_CD_FORNECEDOR'));
+    IBCadastro.FieldByName('CD_FORNECEDOR').AsInteger := Codigo;
+  end;
+
+  inherited;
+end;
+
+procedure TfCadFornecedores.edCdMunicipioChange(Sender: TObject);
+begin
+  if vazio(edCdMunicipio.Text) then edNmMunicipio.Color := clWindow
+                               else edNmMunicipio.Color := clInfoBk;
+end;
+
+procedure TfCadFornecedores.edCdMunicipioExit(Sender: TObject);
+var
+  NomeMunicipio : String;
+begin
+  if (Modo in [mdInclusao, mdAlteracao]) then
+  begin
+    NomeMunicipio := fDB.GetValorDoCampo(DtM.IBDatabaseServer, 'NM_MUNICIPIO', 'TAB_MUNICIPIOS', 'CD_MUNICIPIO = '+trim(edCdMunicipio.Text), '');
+    if not Vazio(NomeMunicipio) then
+      IBCadastro.FieldByName('CIDADE').AsString := NomeMunicipio;
+  end;
+end;
+
+procedure TfCadFornecedores.edCdMunicipioKeyDown(Sender: TObject; var Key: Word; Shift: TShiftState);
+begin
+  if (CM.F3OuAltDown(key, shift)) and (Modo in [mdAlteracao, mdInclusao]) then btPesquisaMunicipio.Click;
+end;
+
+procedure TfCadFornecedores.edCdMunicipioKeyPress(Sender: TObject; var Key: Char);
+begin
+  FiltroPesqMunicipio := CM.PegaFiltroPesqMunicipio(edEstado.Text);
+  ItemEsc.CodInt := CodigoVazio;
+  if (Modo in [mdAlteracao, mdInclusao]) then
+  begin
+    if not (key in SetNumeros) then
+      ItemEsc := mPesq.PesquisaDireto(key, pqMunicipios, [], edCdMunicipio, '', FiltroPesqMunicipio);
+    if ItemEsc.CodInt <> CodigoVazio then
+    begin
+      IBCadastro.FieldByName('CD_MUNICIPIO').AsInteger := ItemEsc.CodInt;
+      IBCadastro.FieldByName('CIDADE').AsString := ItemEsc.Descricao;
+    end;
+  end;
+end;
+
+procedure TfCadFornecedores.btPesquisaMunicipioClick(Sender: TObject);
+begin
+  FiltroPesqMunicipio := CM.PegaFiltroPesqMunicipio(edEstado.Text);
+  if (Modo in [mdAlteracao, mdInclusao]) then
+  begin
+    ItemEsc := mPesq.Pesquisa(pqMunicipios, [], edCdMunicipio, edNmMunicipio.Text, FiltroPesqMunicipio);
+    if ItemEsc.CodInt <> CodigoVazio then
+    begin
+      IBCadastro.FieldByName('CD_MUNICIPIO').AsInteger := ItemEsc.CodInt;
+      IBCadastro.FieldByName('CIDADE').AsString := ItemEsc.Descricao;
+    end;
+  end;
+end;
+
+procedure TfCadFornecedores.DBRadioGroup1Change(Sender: TObject);
+begin
+  if not PodeOnChangergPessoa then Exit;    // Este trecho foi adcionado porque este evento era disparado duas vezes
+  PodeOnChangergPessoa := false;
+
+  if Modo in [mdInclusao, mdAlteracao] then
+  begin
+    case StrToChar(EstaTabela.FieldByName('PESSOA').AsString, 'F') of
+      'F' : PessoaEscolhida := 'J';
+      'J' : PessoaEscolhida := 'F';
+    end;
+  end
+  else PessoaEscolhida := StrToChar(EstaTabela.FieldByName('PESSOA').AsString, 'F');
+
+  HabilitaDesabilitaCampos;
+end;
+
+procedure TfCadFornecedores.HabilitaDesabilitaCampos;
+var
+  FormatoCPF: String;
+begin
+  case PessoaEscolhida of
+    pFisica :
+    begin
+      Label2.Caption := 'Nome';
+      Label3.Caption := 'Apelido';
+      Label4.Caption := 'Data de Nascimento';
+      Label16.Caption := 'RG';
+      Label17.Caption := 'CPF';
+      FormatoCPF := '!999\.999\.999\-99;0; '; // tem que ter o espaço no final
+    end;
+    pJuridica :
+    begin
+      Label2.Caption := 'Razão Social';
+      Label3.Caption := 'Nome Fantasia';
+      Label4.Caption := 'Data de Fundação';
+      Label16.Caption := 'Insc. Est.';
+      Label17.Caption := 'CNPJ';
+      FormatoCPF := '!99\.999\.999\/9999\-99;0; ';
+    end;
+  end;
+
+  PodeOnChangergPessoa := false;
+  if FormatoCPF <> TStringField(EstaTabela.FieldByName('CGC')).EditMask then
+    TStringField(EstaTabela.FieldByName('CGC')).EditMask := FormatoCPF;
+
+//  CM.FormataCampo(TipoVarChar, EstaTabela.FieldByName('CGC'), FormatoCPF, taLeftJustify);
+
+  if Modo in [mdInclusao, mdAlteracao] then
+    try EstaTabela.FieldByName('PESSOA').AsString := PessoaEscolhida; except end;
+
+  PodeOnChangergPessoa := true;
+end;
+
+end.

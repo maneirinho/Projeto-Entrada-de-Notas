@@ -1,0 +1,29 @@
+unit UCadLocalizaFornecedor;
+
+interface
+
+uses
+  Windows, Messages, SysUtils, Variants, Classes, Graphics, Controls, Forms,
+  Dialogs, StdCtrls, Buttons, JvExControls, JvGradient;
+
+type
+  TfCadLocalizaFornecedor = class(TForm)
+    JvGradient1: TJvGradient;
+    btnLocalizar: TBitBtn;
+    btnCadastrar: TBitBtn;
+  private
+    { Private declarations }
+  public
+    { Public declarations }
+  end;
+
+var
+  fCadLocalizaFornecedor: TfCadLocalizaFornecedor;
+
+implementation
+
+uses UConsultaListaNotas;
+
+{$R *.dfm}
+
+end.

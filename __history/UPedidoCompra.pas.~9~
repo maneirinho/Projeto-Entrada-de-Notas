@@ -1,0 +1,777 @@
+//ok
+unit UPedidoCompra;
+
+interface
+
+uses
+  Windows, Messages, SysUtils, Variants, Classes, Graphics, Controls, Forms,
+   Dialogs, StdCtrls, Mask, DBCtrls, ExtCtrls, Buttons,
+  DUtilit, IBODataSet, UDataMod, Grids, Wwdbigrd, Wwdbgrid,
+  UComp, DB, UComum, DBIboSuperCombo, JvExMask, JvToolEdit, JvBaseEdits, UConstVar,
+  MessageFunctions;
+
+const
+  EstaChave = '\PedidosDeCompra';
+  NomeDaTabela = 'PEDIDOSDECOMPRA';
+  ChavePrimaria = 'NUM_PEDIDO';
+
+type
+  TfPedidoCompra = class(TForm)
+    Panel1: TPanel;
+    Panel2: TPanel;
+    GroupBox4: TGroupBox;
+    wwDBGrid1: TwwDBGrid;
+    Bt_IncluirItem: TBitBtn;
+    Bt_ExcluirItem: TBitBtn;
+    Bt_AlterarItem: TBitBtn;
+    Bt_Sair: TBitBtn;
+    Bt_FechaPedido: TBitBtn;
+    GroupBox5: TGroupBox;
+    GroupBox1: TGroupBox;
+    Label1: TLabel;
+    Label2: TLabel;
+    DBEdit1: TDBEdit;
+    DBEdit2: TDBEdit;
+    DBEdit3: TDBEdit;
+    Bt_GravarPedido: TBitBtn;
+    Bt_Cancelar: TBitBtn;
+    Bt_IncluirPedido: TBitBtn;
+    Bt_ExcluirPedido: TBitBtn;
+    Bt_AlterarPedido: TBitBtn;
+    DBNavigator1: TDBNavigator;
+    Bt_Pesquisar: TBitBtn;
+    DataSource1: TDataSource;
+    Bt_LocFornecedor: TBitBtn;
+    DataSource2: TDataSource;
+    Label16: TLabel;
+    Label40: TLabel;
+    DBEdit16: TDBEdit;
+    Label39: TLabel;
+    DBEdit15: TDBEdit;
+    Label47: TLabel;
+    Label3: TLabel;
+    DBText1: TDBText;
+    DBIboSuperCombo1: TDBIboSuperCombo;
+    Label4: TLabel;
+    DBMemo1: TDBMemo;
+    Label5: TLabel;
+    Panel3: TPanel;
+    bt_ReabrePedido: TBitBtn;
+    BitBtn1: TBitBtn;
+    EditTotal: TJvCalcEdit;
+    procedure Bt_SairClick(Sender: TObject);
+    procedure Bt_IncluirPedidoClick(Sender: TObject);
+    procedure Bt_ExcluirPedidoClick(Sender: TObject);
+    procedure Bt_AlterarPedidoClick(Sender: TObject);
+    procedure Bt_GravarPedidoClick(Sender: TObject);
+    procedure Bt_CancelarClick(Sender: TObject);
+    procedure FormShow(Sender: TObject);
+    procedure FormKeyDown(Sender: TObject; var Key: Word; Shift: TShiftState);
+    procedure FormKeyPress(Sender: TObject; var Key: Char);
+    procedure FormClose(Sender: TObject; var Action: TCloseAction);
+    procedure FormCreate(Sender: TObject);
+    procedure DataSource1DataChange(Sender: TObject; Field: TField);
+    procedure DBEdit2Exit(Sender: TObject);
+    procedure Bt_IncluirItemClick(Sender: TObject);
+    procedure Bt_ExcluirItemClick(Sender: TObject);
+    procedure Bt_AlterarItemClick(Sender: TObject);
+    procedure wwDBGrid1DblClick(Sender: TObject);
+    procedure Bt_FechaPedidoClick(Sender: TObject);
+    procedure Bt_LocFornecedorClick(Sender: TObject);
+    procedure bt_ReabrePedidoClick(Sender: TObject);
+    procedure BitBtn1Click(Sender: TObject);
+  private
+    ChaveDoRegistro : String;
+    Modo      : TModos;
+    procedure IniciaValores;
+    procedure AlteraModo(mdModo: TModos);
+    function TemErro: boolean;
+    procedure Filtra;
+    procedure LocalizaFornecedor(lfCodigoDoFornecedor: Integer);
+    procedure VerificaFechado;
+    { Private declarations }
+  public
+    ErroDeGravacao : boolean;
+    { Public declarations }
+  end;
+
+var
+  fPedidoCompra: TfPedidoCompra;
+  AbriuAgora : boolean;
+
+implementation
+
+uses UPedidoCompraItems,
+  UModUsuarios, DBFunctions, UModPesquisa;
+
+{$R *.dfm}
+
+procedure TfPedidoCompra.Filtra;
+begin
+  if (not DtM.IBPedidoCompra.IsEmpty) and (not vazio(DtM.IBPedidoCompra.FieldByName('NUM_PEDIDO').AsString)) then
+  begin
+    DtM.IBPCItems.Active := false;
+    DtM.IBPCItems.SQL.Clear;
+    DtM.IBPCItems.SQL.Add('select * from PEDIDOSDECOMPRA_ITEMS');
+    DtM.IBPCItems.SQL.Add('where NUM_PEDIDO = :NUM_PEDIDO');
+    DtM.IBPCItems.SQL.Add('and BAIXADO = :BAIXADO');
+    DtM.IBPCItems.SQL.Add('Order By SEQUENCIAL');
+    if not DtM.IBPCItems.Prepared then DtM.IBPCItems.Prepare;
+    DtM.IBPCItems.ParamByName('NUM_PEDIDO').AsInteger := DtM.IBPedidoCompra.FieldByName('NUM_PEDIDO').AsInteger;
+    DtM.IBPCItems.ParamByName('BAIXADO').AsString := 'F';
+    DtM.IBPCItems.Active := true;
+
+    DtM.IBTabela.Active := false;
+    DtM.IBTabela.SQL.Clear;
+    DtM.IBTabela.SQL.Add('Select Sum(VALORTOTAL) from PEDIDOSDECOMPRA_ITEMS');
+    DtM.IBTabela.SQL.Add('where NUM_PEDIDO = :NUM_PEDIDO');
+    DtM.IBTabela.SQL.Add('and BAIXADO = :BAIXADO');
+    if not DtM.IBTabela.Prepared then DtM.IBTabela.Prepare;
+    DtM.IBTabela.ParamByName('NUM_PEDIDO').AsInteger := DtM.IBPedidoCompra.FieldByName('NUM_PEDIDO').AsInteger;
+    DtM.IBTabela.ParamByName('BAIXADO').AsString := 'F';
+    DtM.IBTabela.Active := true;
+    EditTotal.Value := DtM.IBTabela.FieldByName('SUM').AsCurrency;
+    fDB.FechaTT(DtM.IBTabela);
+  end
+  else begin
+    DtM.IBPCItems.Active := false;
+    DtM.IBPCItems.SQL.Clear;
+    DtM.IBPCItems.SQL.Add('select * from PEDIDOSDECOMPRA_ITEMS');
+    DtM.IBPCItems.SQL.Add('where NUM_PEDIDO = -99999999999');
+    if not DtM.IBPCItems.Prepared then DtM.IBPCItems.Prepare;
+    fDB.FechaTT(DtM.IBPCItems);
+    EditTotal.Value := 0;
+  end;
+  VerificaFechado;
+end;
+
+procedure TfPedidoCompra.VerificaFechado;
+begin
+  if Vazio(DtM.IBPedidoCompra.FieldByName('FECHADA').AsString) then
+  begin
+    Panel3.Caption := '';
+    Bt_FechaPedido.Visible  := false;
+    Bt_ReabrePedido.Visible := false;
+    exit;
+  end;
+
+  if DtM.IBPedidoCompra.FieldByName('FECHADA').AsString = 'V' then
+  begin
+    Panel3.Font.Color := clGreen;
+    Panel3.Caption := 'Fechado';
+    Bt_FechaPedido.Visible  := false;
+    Bt_ReabrePedido.Visible := true;
+  end
+  else begin
+    Panel3.Font.Color := clRed;
+    Panel3.Caption := 'Aberto';
+    Bt_FechaPedido.Visible  := true;
+    Bt_ReabrePedido.Visible := false;
+  end;
+end;
+
+procedure TfPedidoCompra.IniciaValores;
+begin
+end;
+
+procedure TfPedidoCompra.AlteraModo(mdModo: TModos);
+begin
+  Modo := mdModo;
+  case Modo of
+    mdInclusao:
+      begin
+        bt_IncluirPedido.Enabled   := false;
+        bt_ExcluirPedido.Enabled   := false;
+        bt_AlterarPedido.Enabled   := false;
+        bt_Pesquisar.Enabled       := false;
+        bt_GravarPedido.Enabled    := true;
+        bt_Cancelar.Enabled        := true;
+        DBNavigator1.Enabled       := false;
+      end;
+    mdAlteracao:
+      begin
+        bt_IncluirPedido.Enabled   := false;
+        bt_ExcluirPedido.Enabled   := false;
+        bt_AlterarPedido.Enabled   := false;
+        bt_Pesquisar.Enabled       := false;
+        bt_GravarPedido.Enabled    := true;
+        bt_Cancelar.Enabled        := true;
+        DBNavigator1.Enabled       := false;
+      end;
+    mdNavegacao:
+      begin
+        bt_IncluirPedido.Enabled   := true;
+        bt_ExcluirPedido.Enabled   := true;
+        bt_AlterarPedido.Enabled   := true;
+        bt_Pesquisar.Enabled       := true;
+        bt_GravarPedido.Enabled    := false;
+        bt_Cancelar.Enabled        := false;
+        DBNavigator1.Enabled       := true;
+      end;
+  end;
+  if DtM.IBPedidoCompra.IsEmpty then
+  begin
+    bt_ExcluirPedido.Enabled   := false;
+    bt_AlterarPedido.Enabled   := false;
+  end;
+end;
+
+function TfPedidoCompra.TemErro: boolean;
+begin
+  result := false;
+
+  if (not result) and (Vazio(DBEdit2.Text)) then
+  begin
+    MensagemDeAtencao('É necessário que o campo CÓDIGO do Fornecedor esteja preenchido');
+    result := true;
+    DBEdit2.SetFocus;
+  end;
+
+  if (not result) and (Vazio(DBIboSuperCombo1.Edit2Text)) then
+  begin
+    MensagemDeAtencao('É necessário que o campo "RESPONSÁVEL" esteja preenchido');
+    result := true;
+    DBIboSuperCombo1.SetFocus;
+  end;
+
+  ErroDeGravacao := result;
+end;
+
+procedure TfPedidoCompra.Bt_SairClick(Sender: TObject);
+begin
+  if Modo = mdNavegacao then
+    Close
+  else begin
+    case MensagemDeConfirmacao('Deseja salvar este registro antes de sair?', 'Confirmação', mbYes, true) of
+       mrYes    : begin
+                    Bt_GravarPedido.Click;
+                    if ErroDeGravacao then exit;
+                  end;
+       mrNo     : begin
+                    Bt_Cancelar.Click;
+                    Close;
+                    Exit;
+                  end;
+       mrCancel : exit;
+    end;
+    try
+      DtM.IBPedidoCompra.IB_Transaction.Commit;
+    except
+      on E: exception do begin
+        LogDeErros(E.Message);
+        DtM.IBPedidoCompra.IB_Transaction.RollBack;
+      end;
+    end;
+    Close;
+  end;
+end;
+
+procedure TfPedidoCompra.Bt_IncluirPedidoClick(Sender: TObject);
+begin
+  if not mUsers.TemAcessoPermissao(sgPedidoDeCompra, 'I') then Exit;
+  PodeIncluir := true;
+  try
+    if not DtM.IBPedidoCompra.Active then DtM.IBPedidoCompra.Active := true; 
+    if not DtM.IBPedidoCompra.IB_Transaction.InTransaction then DtM.IBPedidoCompra.IB_Transaction.StartTransaction;
+    DtM.IBPedidoCompra.insert;
+    IniciaValores;
+    try
+      DBEdit2.SetFocus;
+    except
+    end;
+  finally
+    AlteraModo(mdInclusao);
+    PodeIncluir := false;
+  end;
+end;
+
+procedure TfPedidoCompra.Bt_ExcluirPedidoClick(Sender: TObject);
+var
+  EsteRegistro: String;
+begin
+  if not mUsers.TemAcessoPermissao(sgPedidoDeCompra, 'E') then Exit;
+  EsteRegistro := DtM.IBPedidoCompra.FieldByName('NUM_PEDIDO').AsString + ' - ' + DtM.IBPedidoCompra.FieldByName('DT_CADASTRO').AsString + ' - Fornec:' + DtM.IBPedidoCompra.FieldByName('CD_FORNECEDOR').AsString;
+  try
+    if MensagemDeConfirmacao('Confirma exclusão deste Pedido?') <>  mrYes then
+      Exit;
+
+    try
+      if not DtM.IBTabela.IB_Transaction.InTransaction then DtM.IBTabela.IB_Transaction.StartTransaction;
+      DtM.IBTabela.Active := false;
+      DtM.IBTabela.SQL.Clear;
+      DtM.IBTabela.SQL.Add('Delete from PEDIDOSDECOMPRA');
+      DtM.IBTabela.SQL.Add('where NUM_PEDIDO = '+ DtM.IBPedidoCompra.FieldByName('NUM_PEDIDO').AsString);
+      if not DtM.IBTabela.Prepared then DtM.IBTabela.Prepare;
+      DtM.IBTabela.ExecSQL;
+      DtM.IBTabela.IB_Transaction.Commit;
+      CM.IncluiEmExclusoes(exPedidoCompra, EsteRegistro);
+   except
+      on E: exception do begin
+        LogDeErros(E.Message);
+        DtM.IBTabela.IB_Transaction.Rollback;
+        MensagemDeErro('Não foi possível excluir este registro ');
+      end;
+    end;
+  finally
+    DtM.IBPedidoCompra.Refresh;
+    AlteraModo(mdNavegacao);
+  end;
+end;
+
+procedure TfPedidoCompra.Bt_AlterarPedidoClick(Sender: TObject);
+var
+  i : word;
+  book : TBookmark;
+begin
+  if not mUsers.TemAcessoPermissao(sgPedidoDeCompra, 'A') then Exit;
+  for i := 0 to DtM.IBPedidoCompra.SQL.Count-1 do
+  begin
+    if ExistePalavra(DtM.IBPedidoCompra.SQL[i], 'PLAN', false) then
+    begin
+      Book := DtM.IBPedidoCompra.GetBookmark;
+      DtM.IBPedidoCompra.SQL[i] := 'PLAN ('+NomeDaTabela+' NATURAL)';
+      DtM.IBPedidoCompra.Active := false;
+      DtM.IBPedidoCompra.Active := true;
+      DtM.IBPedidoCompra.GotoBookmark(book);
+    end;
+  end;
+
+  DtM.IBPedidoCompra.RefreshRows;
+  if not DtM.IBPedidoCompra.IB_Transaction.InTransaction then DtM.IBPedidoCompra.IB_Transaction.StartTransaction;
+  DtM.IBPedidoCompra.EDIT;
+  IniciaValores;
+  AlteraModo(mdAlteracao);
+end;
+
+procedure TfPedidoCompra.Bt_GravarPedidoClick(Sender: TObject);
+begin
+  if not mUsers.TemAcessoPermissao(sgPedidoDeCompra, 'A') then Exit;
+  if TemErro then
+    Exit;
+
+  try
+    DtM.IBPedidoCompra.FieldByName('BAIXADA').AsString := 'F';
+    DtM.IBPedidoCompra.FieldByName('FECHADA').AsString := 'F';
+    DtM.IBPedidoCompra.Post;
+    DtM.IBPedidoCompra.IB_Transaction.Commit;
+  except
+    on E: exception do begin
+      LogDeErros(E.Message);
+      DtM.IBPedidoCompra.IB_Transaction.Rollback;
+    end;
+  end;
+  AlteraModo(mdNavegacao);
+  Filtra;
+  DtM.IBPedidoCompra.RefreshRows;
+end;
+
+procedure TfPedidoCompra.Bt_CancelarClick(Sender: TObject);
+begin
+  DtM.IBPedidoCompra.cancel;
+  DtM.IBPedidoCompra.IB_Transaction.RollbackRetaining;
+  AlteraModo(mdNavegacao);
+  DataSource1DataChange(DataSource1, nil);
+end;
+
+procedure TfPedidoCompra.FormShow(Sender: TObject);
+begin
+  try
+    DBEdit2.SetFocus;
+  except
+  end;
+  AlteraModo(mdNavegacao);
+
+  Screen.Cursor := crDefault;
+
+  if AbriuAgora then
+  begin
+    DtM.IBPedidoCompra.Active := false;
+    DtM.IBPedidoCompra.SQL.Clear;
+    DtM.IBPedidoCompra.SQL.Add('Select * from PEDIDOSDECOMPRA');
+    DtM.IBPedidoCompra.SQL.Add('where BAIXADA = '+QuotedStr('F'));
+    if not DtM.IBPedidoCompra.Prepared then DtM.IBPedidoCompra.Prepare;
+    DtM.IBPedidoCompra.Active := true;
+    Filtra;
+    AbriuAgora := false;
+    DBEdit2.SetFocus;
+    Screen.Cursor := crDefault;
+    DataSource1DataChange(DataSource1, nil);
+  end;
+  
+  CM.FechaAviso;
+end;
+
+procedure TfPedidoCompra.FormKeyDown(Sender: TObject; var Key: Word; Shift: TShiftState);
+begin
+  case key of
+    vk_F2    : if (Shift = []) and (Bt_IncluirItem.Enabled)    then Bt_IncluirItem.Click;
+    vk_F3    : if (Shift = []) and (Bt_Pesquisar.Enabled)      then Bt_Pesquisar.Click;
+    vk_F4    : if (Shift = []) and (Bt_ExcluirItem.Enabled)    then Bt_ExcluirItem.Click;
+    vk_F5    : if (Shift = []) and (Bt_AlterarItem.Enabled)    then Bt_AlterarItem.Click;
+    vk_F11   : if (Shift = []) and (Bt_FechaPedido.Enabled)    then Bt_FechaPedido.Click;
+    vk_F9    : if (Shift = []) and (Bt_ReabrePedido.Enabled)   then Bt_ReabrePedido.Click;
+    vk_Escape: begin
+                 if (Modo = mdInclusao) or (Modo = mdAlteracao) then
+                 begin
+                   if Bt_Cancelar.Enabled then Bt_Cancelar.Click;
+                 end
+                 else Bt_Sair.Click;
+               end;
+  end;
+end;
+
+procedure TfPedidoCompra.FormKeyPress(Sender: TObject; var Key: Char);
+begin
+  if (key = #13) then
+  begin
+    Key := #0;
+    Perform(Wm_NextDlgCtl, 0, 0);
+  end;
+end;
+
+procedure TfPedidoCompra.FormClose(Sender: TObject; var Action: TCloseAction);
+begin
+  fDB.FechaTT(DtM.IBPCItems);
+  fDB.FechaTT(DtM.IBPedidoCompra);
+  Action := caFree;
+  wwDBGrid1.SaveToIniFile;
+end;
+
+procedure TfPedidoCompra.FormCreate(Sender: TObject);
+begin
+  ChaveDoRegistro := RegChaveForms+EstaChave;
+  CM.InicializaGrid(TeclaTaPressionada(vk_Shift), self, wwDBGrid1);
+
+  DataSource1.DataSet := DtM.IBPedidoCompra;
+  DataSource2.DataSet := DtM.IBPCItems;
+
+  AbriuAgora := true;
+end;
+
+procedure TfPedidoCompra.DataSource1DataChange(Sender: TObject; Field: TField);
+begin
+  Filtra;
+  if DtM.IBPedidoCompra.State in [dsInsert] then AlteraModo(mdInclusao);
+  if DtM.IBPedidoCompra.State in [dsEdit]   then AlteraModo(mdAlteracao);
+
+  if Modo = mdNavegacao then
+  begin
+    if DtM.IBPedidoCompra.IsEmpty then
+    begin
+      bt_ExcluirPedido.Enabled   := false;
+      bt_AlterarPedido.Enabled   := false;
+
+      bt_IncluirItem.Enabled   := false;
+      bt_ExcluirItem.Enabled   := false;
+      bt_AlterarItem.Enabled   := false;
+      DesligaComponente(Self, wwDBGrid1);
+    end
+    else begin
+      bt_ExcluirPedido.Enabled   := true;
+      bt_AlterarPedido.Enabled   := true;
+
+      bt_IncluirItem.Enabled   := true;
+      bt_ExcluirItem.Enabled   := true;
+      bt_AlterarItem.Enabled   := true;
+      LigaComponente(Self, wwDBGrid1);
+    end;
+  end
+  else begin
+    bt_IncluirItem.Enabled   := false;
+    bt_ExcluirItem.Enabled   := false;
+    bt_AlterarItem.Enabled   := false;
+    DesligaComponente(Self, wwDBGrid1);
+  end;
+end;
+
+procedure TfPedidoCompra.DBEdit2Exit(Sender: TObject);
+var
+  CodFornec : String;
+  CNPJ : String;
+  MemoBuf1, MemoBuf2 : TStrings;
+begin
+  if (not Vazio(DtM.IBPedidoCompra.FieldByName('CD_Fornecedor').AsString)) then
+  begin
+    if ((modo = mdInclusao) or (modo = mdAlteracao)) then
+    begin
+      with DtM do begin
+        IBTabela.Active := false;
+        IBTabela.SQL.Clear;
+        IBTabela.SQL.Add('Select CD_FORNECEDOR, NM_FORNECEDOR, CGC, OBS from FORNECEDORES');
+        IBTabela.SQL.Add('where CD_FORNECEDOR = '+TiraEspacos(DBEdit2.Text));
+        if not IBTabela.Prepared then IBTabela.Prepare;
+        IBTabela.Active := true;
+        CodFornec := IBTabela.FieldByName('CD_FORNECEDOR').AsString;
+        CNPJ := IBTabela.FieldByName('CGC').AsString;
+        if not IBTabela.IsEmpty then
+        begin
+          MemoBuf2 := TStringList.Create;
+          MemoBuf1 := TStringList.Create;
+          MemoBuf1.Text := IBTabela.FieldByName('OBS').AsString;
+          MemoBuf2.Text := DtM.IBPedidoCompra.FieldByName('OBS').AsString;
+          DtM.IBPedidoCompra.FieldByName('NM_FORNECEDOR').AsString := IBTabela.FieldByName('NM_FORNECEDOR').AsString;
+          DtM.IBPedidoCompra.FieldByName('CD_FORNECEDOR').AsString := CodFornec;
+          DtM.IBPedidoCompra.FieldByName('CNPJ').AsString          := CNPJ;
+          if TStringsVazia(MemoBuf2) then DtM.IBPedidoCompra.FieldByName('OBS').Assign(MemoBuf1);
+          MemoBuf1.Free;
+          MemoBuf2.Free;
+        end
+        else begin
+          DtM.IBPedidoCompra.FieldByName('NM_FORNECEDOR').AsString := '';
+          DtM.IBPedidoCompra.FieldByName('CD_FORNECEDOR').AsString := '';
+          DtM.IBPedidoCompra.FieldByName('CNPJ').AsString          := '';
+        end;
+        IBTabela.Active := false;
+        fDB.FechaTT(IBTabela);
+      end;
+    end;
+  end
+  else begin
+    if (not Bt_GravarPedido.Focused) and (not Bt_Cancelar.Focused) then
+      Bt_LocFornecedor.Click;
+  end;
+end;
+
+procedure TfPedidoCompra.Bt_IncluirItemClick(Sender: TObject);
+var
+  Q : integer;
+begin
+  if not mUsers.TemAcessoPermissao(sgPedidoDeCompra, 'A') then Exit;
+  if DtM.IBPedidoCompra.FieldByName('FECHADA').AsString = 'V' then
+  begin
+    MensagemDeInformacao('Pedido Fechado');
+    Exit;
+  end;
+
+  Bt_IncluirItem.SetFocus;
+  Application.CreateForm(TfPedidoCompraItems, fPedidoCompraItems);
+  fPedidoCompraItems.Modo := mdInclusao;
+  fPedidoCompraItems.Caption := fPedidoCompraItems.Caption + ' - Incluir Item';
+
+  fPedidoCompraItems.Bt_Incluir.Visible := true;
+  fPedidoCompraItems.Bt_Ok.Visible := false;
+  fPedidoCompraItems.Bt_Proximo.Visible := false;
+  fPedidoCompraItems.Bt_Anterior.Visible := false;
+
+  Q := DtM.IBPCItems.RecordCount;
+
+  fPedidoCompraItems.EditSequencial.Value := fDB.getQuantidadeDeRegistros(DtM.IBDatabaseServer,'PEDIDOSDECOMPRA_ITEMS', 'NUM_PEDIDO = '+DtM.IBPedidoCompra.FieldByName('NUM_PEDIDO').AsString);
+  if fPedidoCompraItems.EditSequencial.Value = 0 then fPedidoCompraItems.EditSequencial.Value := 1
+                                              else fPedidoCompraItems.EditSequencial.Value := fPedidoCompraItems.EditSequencial.Value + 1;
+
+  fPedidoCompraItems.ShowModal;
+  FreeAndNil(fPedidoCompraItems);
+
+  DtM.IBPCItems.DisableControls;
+  filtra;
+  if Q < DtM.IBPCItems.RecordCount then DtM.IBPCItems.Last;
+  DtM.IBPCItems.EnableControls;
+
+  DtM.IBPedidoCompra.RefreshRows;
+end;
+
+procedure TfPedidoCompra.Bt_ExcluirItemClick(Sender: TObject);
+var
+  CodItem : String;
+  Book : TBookMark;
+begin
+  if not mUsers.TemAcessoPermissao(sgPedidoDeCompra, 'A') then Exit;
+  if DtM.IBPedidoCompra.FieldByName('FECHADA').AsString = 'V' then
+  begin
+    MensagemDeInformacao('Pedido Fechado');
+    Exit;
+  end;
+
+  if not DtM.IBPCItems.IsEmpty then
+  begin
+    if MensagemDeConfirmacao('Deseja realmente apagar este item do Pedido?') = mrYes then
+    begin
+      DtM.IBPCItems.DisableControls;
+      CodItem := DtM.IBPCItems.FieldByName('CD_ITEM').AsString;
+      DtM.IBPCItems.Next;
+      Book := DtM.IBPCItems.GetBookmark;
+      DtM.IBPCItems.Active := false;
+      if not DtM.IBTabela.IB_Transaction.InTransaction then DtM.IBTabela.IB_Transaction.StartTransaction;
+      DtM.IBTabela.Active := false;
+      DtM.IBTabela.SQL.Clear;
+      DtM.IBTabela.SQL.Add('Delete from PEDIDOSDECOMPRA_ITEMS');
+      DtM.IBTabela.SQL.Add('where NUM_PEDIDO = '+DtM.IBPedidoCompra.FieldByName('NUM_PEDIDO').AsString);
+      DtM.IBTabela.SQL.Add('and CD_ITEM = '+CodItem);
+      if not DtM.IBTabela.Prepared then DtM.IBTabela.Prepare;
+      DtM.IBTabela.ExecSQL;
+      DtM.IBTabela.IB_Transaction.Commit;
+      filtra;
+      try
+        DtM.IBPCItems.GotoBookmark(Book);
+      except
+      end;
+      DtM.IBPCItems.EnableControls;
+      DtM.IBPedidoCompra.RefreshRows;
+    end;
+  end;
+end;
+
+procedure TfPedidoCompra.Bt_AlterarItemClick(Sender: TObject);
+var
+  book : TBookMark;
+begin
+  if not mUsers.TemAcessoPermissao(sgPedidoDeCompra, 'A') then Exit;
+  if DtM.IBPedidoCompra.FieldByName('FECHADA').AsString = 'V' then
+  begin
+    MensagemDeInformacao('Pedido Fechado');
+    Exit;
+  end;
+
+  if DtM.IBPCItems.IsEmpty then
+  begin
+    MensagemDeErro('Não há items neste Pedido para Alterar');
+    Exit;
+  end;
+  Book := DtM.IBPCItems.GetBookmark;
+
+  Application.CreateForm(TfPedidoCompraItems, fPedidoCompraItems);
+  fPedidoCompraItems.Modo := mdAlteracao;
+  fPedidoCompraItems.Caption := fPedidoCompraItems.Caption + ' - Alterar Item';
+  fPedidoCompraItems.CodItem := DtM.IBPCItems.FieldByName('CD_ITEM').AsString;
+
+  fPedidoCompraItems.MostraDados;
+  fPedidoCompraItems.Bt_Incluir.Visible := false;
+  fPedidoCompraItems.Bt_Ok.Visible := true;
+  fPedidoCompraItems.Bt_Proximo.Visible := true;
+  fPedidoCompraItems.Bt_Anterior.Visible := true;
+
+  fPedidoCompraItems.ShowModal;
+  FreeAndNil(fPedidoCompraItems);
+
+  DtM.IBPedidoCompra.Refresh;
+  DtM.IBPCItems.DisableControls;
+  filtra;
+  try
+    DtM.IBPCItems.GotoBookmark(Book);
+  except
+  end;
+  DtM.IBPCItems.EnableControls;
+end;
+
+procedure TfPedidoCompra.wwDBGrid1DblClick(Sender: TObject);
+begin
+  Bt_AlterarItem.Click;
+end;
+
+procedure TfPedidoCompra.Bt_FechaPedidoClick(Sender: TObject);
+begin
+  if MensagemDeConfirmacao('Deseja fechar este pedido de compra?') <> mrYes then
+    Exit;
+
+  with DtM do
+  begin
+    if not IBTabela.IB_Transaction.InTransaction then IBTabela.IB_Transaction.StartTransaction; 
+    try
+      IBTabela.Active := false;
+      IBTabela.SQL.Clear;
+      IBTabela.SQL.Add('Update PEDIDOSDECOMPRA set FECHADA = :FECHADA');
+      IBTabela.SQL.Add('where NUM_PEDIDO = :NUM_PEDIDO');
+      if not IBTabela.Prepared then IBTabela.Prepare;
+      IBTabela.ParamByName('FECHADA').AsString := 'V';
+      IBTabela.ParamByName('NUM_PEDIDO').AsString := IBPedidoCompra.FieldByName('NUM_PEDIDO').AsString;
+      IBTabela.ExecSQL;
+      IBTabela.IB_Transaction.Commit;
+    except
+      on E: exception do begin
+        LogDeErros(E.Message);
+        IBTabela.IB_Transaction.Rollback;
+      end;
+    end;
+
+    IBPedidoCompra.Refresh;
+    VerificaFechado;
+  end;
+  MensagemDeInformacao('Pedido Fechado');
+  AlteraModo(mdNavegacao);
+end;
+
+procedure TfPedidoCompra.Bt_LocFornecedorClick(Sender: TObject);
+begin
+  if (Modo = mdInclusao) or (Modo = mdAlteracao) then
+  begin
+    ItemEsc := mPesq.Pesquisa(pqFornecedores, [mdAlteracao, mdinclusao], nil, DBEdit1.Text);
+    if ItemEsc.CodInt <> CodigoVazio then
+      LocalizaFornecedor(ItemEsc.CodInt);
+    DBIBOSuperCombo1.SetFocus;
+  end;
+end;
+
+procedure TfPedidoCompra.LocalizaFornecedor(lfCodigoDoFornecedor: Integer);
+begin
+  if (Modo = mdInclusao) or (Modo = mdAlteracao) then
+  begin
+    DtM.IBPedidoCompra.FieldByName('CD_FORNECEDOR').AsInteger := lfCodigoDoFornecedor;
+    DBEdit2.OnExit(DBEdit2);
+  end;
+end;
+
+procedure TfPedidoCompra.bt_ReabrePedidoClick(Sender: TObject);
+begin
+  if not mUsers.TemAcessoPermissao(sgPedidoDeCompra, 'A') then Exit;
+  if MensagemDeConfirmacao('Deseja Reabrir este pedido de compra?') <> mrYes then
+    Exit;
+
+  with DtM do
+  begin
+    if not IBTabela.IB_Transaction.InTransaction then IBTabela.IB_Transaction.StartTransaction;
+    try
+      IBTabela.Active := false;
+      IBTabela.SQL.Clear;
+      IBTabela.SQL.Add('Update PEDIDOSDECOMPRA set FECHADA = :FECHADA, DT_FECHAMENTO = current_timestamp');
+      IBTabela.SQL.Add('where NUM_PEDIDO = :NUM_PEDIDO');
+      if not IBTabela.Prepared then IBTabela.Prepare;
+      IBTabela.ParamByName('FECHADA').AsString := 'F';
+      IBTabela.ParamByName('NUM_PEDIDO').AsString := IBPedidoCompra.FieldByName('NUM_PEDIDO').AsString;
+      IBTabela.ExecSQL;
+      IBTabela.IB_Transaction.Commit;
+    except
+      on E: exception do begin
+        LogDeErros(E.Message);
+        IBTabela.IB_Transaction.Rollback;
+      end;
+    end;
+
+    IBPedidoCompra.Refresh;
+    VerificaFechado;
+  end;
+  MensagemDeInformacao('Pedido Aberto');
+  AlteraModo(mdNavegacao);
+end;
+
+procedure TfPedidoCompra.BitBtn1Click(Sender: TObject);
+begin
+  if not mUsers.TemAcessoPermissao(sgPedidoDeCompra, 'A') then Exit;
+  if MensagemDeConfirmacao('Deseja baixar este Pedido de Compra?') <> mrYes then
+    Exit; 
+
+  with DtM do
+  begin
+    if not IBTabela.IB_Transaction.InTransaction then IBTabela.IB_Transaction.StartTransaction;
+    try
+      IBTabela.Active := false;
+      IBTabela.SQL.Clear;
+      IBTabela.SQL.Add('Update PEDIDOSDECOMPRA set BAIXADA = :BAIXADA, DT_BAIXA = current_timestamp');
+      IBTabela.SQL.Add('where NUM_PEDIDO = :NUM_PEDIDO');
+      if not IBTabela.Prepared then IBTabela.Prepare;
+      IBTabela.ParamByName('BAIXADA').AsString := 'V';
+      IBTabela.ParamByName('NUM_PEDIDO').AsString := IBPedidoCompra.FieldByName('NUM_PEDIDO').AsString;
+      IBTabela.ExecSQL;
+      IBTabela.IB_Transaction.Commit;
+      MensagemDeInformacao('Ok.'+#13+#10+'Pedido de Compra Baixado');
+      IBPedidoCompra.Refresh;
+    except
+      on E: exception do begin
+        LogDeErros(E.Message);
+        IBTabela.IB_Transaction.Rollback;
+        MensagemDeErro('Não foi possível baixar este Pedido de Compra');
+      end;
+    end;
+  end;
+end;
+
+end.

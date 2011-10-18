@@ -1,0 +1,102 @@
+unit UConcluiNota;
+
+interface
+
+uses
+  Windows, Messages, SysUtils, Variants, Classes, Graphics, Controls, Forms,
+  DUtilit, Dialogs, StdCtrls, UComum, Buttons, JvExControls, JvLabel,
+  ExtCtrls, UConstVar;
+
+const
+  EstaChave = '\ConcluiNota';
+
+type
+  TfConcluiNota = class(TForm)
+    Label1: TLabel;
+    btSim: TBitBtn;
+    btNao: TBitBtn;
+    GoupBoxOpcoes: TGroupBox;
+    CheckBoxConciliarPrecos: TCheckBox;
+    CheckBoxContasAPagar: TCheckBox;
+    LabelEstoque: TJvLabel;
+    ComboBoxEstoque: TComboBox;
+    Bevel1: TBevel;
+    procedure FormShow(Sender: TObject);
+    procedure btSimClick(Sender: TObject);
+    procedure FormCreate(Sender: TObject);
+    procedure btNaoClick(Sender: TObject);
+  private
+    ChaveDoRegistro : String;
+  public
+    BotaoPressionado : TBotaoPressionado;
+    DepositoEntrada : Integer;
+  end;
+
+var
+  fConcluiNota: TfConcluiNota;
+
+implementation
+
+uses UDataMod, DBFunctions;
+
+{$R *.dfm}
+
+procedure TfConcluiNota.FormShow(Sender: TObject);
+begin
+  CheckBoxConciliarPrecos.Checked := LeBooleanDoRegistro(ChaveDoRegistro, 'ConcliliarPrecos', true);
+  CheckBoxContasAPagar.Checked    := LeBooleanDoRegistro(ChaveDoRegistro, 'ContasAPagar', true);
+  Screen.Cursor := crDefault;
+  CM.FechaAviso;
+end;
+
+procedure TfConcluiNota.btSimClick(Sender: TObject);
+begin
+  BotaoPressionado := bpOk;
+  if CM.TemDepositos then
+    DepositoEntrada := StrToIntZ(PegaAPartirDoUltimo(ComboBoxEstoque.Text, '¤'), 0); 
+
+  SalvaBooleanNoRegistro(ChaveDoRegistro, 'ConcliliarPrecos', CheckBoxConciliarPrecos.Checked);
+  SalvaBooleanNoRegistro(ChaveDoRegistro, 'ContasAPagar', CheckBoxContasAPagar.Checked);
+  Close;
+end;
+
+procedure TfConcluiNota.FormCreate(Sender: TObject);
+begin
+  ChaveDoRegistro := RegChaveForms+EstaChave;
+  BotaoPressionado := bpCancelado;
+
+  DepositoEntrada := CM.PegaDepositoEntradaOuSaida('E');
+  ComboBoxEstoque.Clear;
+  if CM.TemDepositos then
+  begin
+    with DtM do
+    begin
+      IBTabela.Active := false;
+      IBTabela.SQL.Clear;
+      IBTabela.SQL.Add('Select CD_DEPOSITO, NM_DEPOSITO from DEPOSITOS');
+      IBTabela.SQL.Add('where INATIVO <> ''V''');
+      IBTabela.Active := true;
+      while not IBTabela.eof do
+      begin
+        ComboBoxEstoque.Items.Add(IBTabela.FieldByName('NM_DEPOSITO').AsString+Espacos200+'¤'+IBTabela.FieldByName('CD_DEPOSITO').AsString);
+        IBTabela.Next;
+      end;
+      fDB.FechaTT(IBTabela);
+      ComboBoxEstoque.ItemIndex := LocalizaCodTString(ComboBoxEstoque.Items, IntToStr(DepositoEntrada), '¤');
+    end;
+  end
+  else begin
+    LabelEstoque.Visible := false;
+    ComboBoxEstoque.Visible := false;
+    GoupBoxOpcoes.Height := 73;
+    Height := 246;
+  end;
+end;
+
+procedure TfConcluiNota.btNaoClick(Sender: TObject);
+begin
+  BotaoPressionado := bpCancelado;
+  Close;
+end;
+
+end.

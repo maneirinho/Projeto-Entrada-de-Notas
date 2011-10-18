@@ -1,0 +1,424 @@
+unit UCadGruposProdutos;
+
+interface
+
+uses
+  Windows, Messages, SysUtils, Variants, Classes, Graphics, Controls, Forms,
+  Dialogs, IBODataset, DB, ComCtrls, JvExComCtrls, JvDBTreeView, StdCtrls,
+  Buttons, ExtCtrls, IB_Components, dxtree, dxdbtree, UComum, IB_Access,
+  Mask, DBCtrls, UConstVar;
+
+const
+  EstaChave = '\CadGruposProdutos';
+
+type
+  TfCadGruposProdutos = class(TForm)
+    IBGrupos: TIBOQuery;
+    DataSource1: TDataSource;
+    Panel1: TPanel;
+    Bt_Incluir: TBitBtn;
+    Bt_Excluir: TBitBtn;
+    Bt_Alterar: TBitBtn;
+    Bt_Sair: TBitBtn;
+    Bt_Ok: TBitBtn;
+    Panel2: TPanel;
+    LabelCaminho: TLabel;
+    IBOTransaction1: TIBOTransaction;
+    PanelData: TPanel;
+    dxDBTreeView: TdxDBTreeView;
+    Label34: TLabel;
+    DBEdit24: TDBEdit;
+    DBEdit32: TDBEdit;
+    Label41: TLabel;
+    IBGruposCD_GRUPO: TIntegerField;
+    IBGruposCD_PAI: TIntegerField;
+    IBGruposDESCRICAO: TStringField;
+    IBGruposDT_CADASTRO: TDateTimeField;
+    IBGruposULTIMAALTERACAO: TDateTimeField;
+    Panel4: TPanel;
+    chTodos: TCheckBox;
+    procedure FormCreate(Sender: TObject);
+    procedure Bt_OkClick(Sender: TObject);
+    procedure Bt_IncluirClick(Sender: TObject);
+    procedure Bt_AlterarClick(Sender: TObject);
+    procedure Bt_ExcluirClick(Sender: TObject);
+    procedure FormKeyDown(Sender: TObject; var Key: Word; Shift: TShiftState);
+    procedure FormShow(Sender: TObject);
+    procedure DataSource1DataChange(Sender: TObject; Field: TField);
+    procedure dxDBTreeViewDblClick(Sender: TObject);
+    procedure FormClose(Sender: TObject; var Action: TCloseAction);
+    procedure chTodosClick(Sender: TObject);
+  private
+    ChaveDoRegistro : String;
+  public
+    CD_GRUPO : Integer;
+    AbrirNoUltimo : boolean;
+    BotaoPressionado : TBotaoPressionado;
+    ModoCadastro : Boolean;
+    ModoExclusao : Boolean;
+  end;
+
+var
+  fCadGruposProdutos: TfCadGruposProdutos;
+
+implementation
+
+uses DUtilit, UEditaGrupoProduto, UExcluirGrupo, DBFunctions, UDataMod, UDMConexao;
+
+{$R *.dfm}
+
+procedure TfCadGruposProdutos.FormCreate(Sender: TObject);
+begin
+  if not CM.TemConexaoServidorFOCUS(True) then Exit;
+  IBGrupos.IB_Connection := ConexServer;
+  IBOTransaction1.IB_Connection := ConexServer;
+  CD_GRUPO := 0;
+  ModoCadastro := false;
+  ModoExclusao := false;
+  IBGrupos.Active := true;
+  AbrirNoUltimo := false;
+  BotaoPressionado := bpCancelado;
+  ChaveDoRegistro := RegChaveForms+EstaChave;
+end;
+
+procedure TfCadGruposProdutos.Bt_OkClick(Sender: TObject);
+begin
+  BotaoPressionado := bpOk;
+  if chTodos.Checked then CD_GRUPO := 0
+                     else CD_GRUPO := IBGrupos.FieldByName('CD_GRUPO').AsInteger;
+  Close;
+end;
+
+procedure TfCadGruposProdutos.Bt_IncluirClick(Sender: TObject);
+var
+  EstaTabela : TIB_Query;
+  EstaTransacao : TIB_Transaction;
+  CD_NEWGRUPO : Integer;
+begin
+  try
+    EstaTabela := TIB_Query.Create(self);
+    EstaTransacao := TIB_Transaction.Create(self);
+    EstaTabela.IB_Connection := ConexServer;
+    EstaTransacao.IB_Connection := ConexServer;
+    EstaTabela.IB_Transaction := EstaTransacao;
+
+    application.CreateForm(TfEditaGrupoProduto, fEditaGrupoProduto);
+    fEditaGrupoProduto.Caption := 'Novo Grupo';
+    fEditaGrupoProduto.Label1.Caption := 'Novo Grupo de: '+LabelCaminho.Caption;
+    fEditaGrupoProduto.ShowModal;
+    if fEditaGrupoProduto.BotaoPressionado = bpOk then
+    begin
+      EstaTabela.Active := false;
+      EstaTabela.SQL.Clear;
+      EstaTabela.SQL.Add('Select Count(*) Q from GRUPOS_PRODUTOS where (CD_PAI = :CD_PAI) and (DESCRICAO = :DESCRICAO)');
+      if not EstaTabela.Prepared then EstaTabela.Prepare;
+      EstaTabela.ParamByName('DESCRICAO').AsString := fEditaGrupoProduto.Edit1.Text;
+      EstaTabela.ParamByName('CD_PAI').AsInteger   := IBGrupos.FieldByName('CD_GRUPO').AsInteger;
+      EstaTabela.Active := true;
+      if EstaTabela.FieldByName('Q').AsInteger > 0 then
+      begin
+        CM.MensagemDeAtencao('Não é possível cadastrar este GRUPO.'+PL+'Já existe um GRUPO com a Descrição "'+fEditaGrupoProduto.Edit1.Text+'" neste mesmo nível.');
+        Exit;
+      end;
+
+      Screen.Cursor := crHourGlass;
+      CM.AbreAviso('Inserindo Novo Grupo');
+      try
+        CD_NEWGRUPO := CM.CodigoWeb(fDB.PegaValorDoGenerator('GEN_CD_GRUPO_PRODUTO'));
+        EstaTabela.IB_Transaction.StartTransaction;
+        EstaTabela.Active := false;
+        EstaTabela.SQL.Clear;
+        EstaTabela.SQL.Add(' Insert into GRUPOS_PRODUTOS        ');
+        EstaTabela.SQL.Add(' ( CD_GRUPO,  DESCRICAO,  CD_PAI)   ');
+        EstaTabela.SQL.Add('  values                            ');
+        EstaTabela.SQL.Add(' (:CD_GRUPO, :DESCRICAO, :CD_PAI)   ');
+
+        if not EstaTabela.Prepared then EstaTabela.Prepare;
+        EstaTabela.ParamByName('CD_GRUPO').AsInteger := CD_NEWGRUPO;
+        EstaTabela.ParamByName('DESCRICAO').AsString := fEditaGrupoProduto.Edit1.Text;
+        if chTodos.Checked then
+          EstaTabela.ParamByName('CD_PAI').AsInteger := 0
+        else
+          EstaTabela.ParamByName('CD_PAI').AsInteger := IBGrupos.FieldByName('CD_GRUPO').AsInteger;
+
+        EstaTabela.ExecSQL;
+        EstaTabela.IB_Transaction.Commit;
+        chTodos.Checked := false;
+        dxDBTreeView.SetFocus;
+        IBGrupos.Refresh;
+        try IBGrupos.Locate('CD_GRUPO', CD_NEWGRUPO, []); except end;
+      except
+        CM.MensagemDeErro('Não foi possível inserir este grupo');
+        EstaTabela.IB_Transaction.Rollback;
+      end;
+    end;
+  finally
+    FreeAndNil(fEditaGrupoProduto);
+    EstaTabela.Free;
+    EstaTransacao.Free;
+    CM.FechaAviso;
+  end;
+end;
+
+procedure TfCadGruposProdutos.Bt_AlterarClick(Sender: TObject);
+var
+  EstaTabela : TIB_Query;
+  EstaTransacao : TIB_Transaction;
+begin
+  try
+    EstaTabela := TIB_Query.Create(self);
+    EstaTransacao := TIB_Transaction.Create(self);
+    EstaTabela.IB_Connection := ConexServer;
+    EstaTransacao.IB_Connection := ConexServer;
+    EstaTabela.IB_Transaction := EstaTransacao;
+
+    application.CreateForm(TfEditaGrupoProduto, fEditaGrupoProduto);
+    fEditaGrupoProduto.Caption := 'Alterar Grupo';
+    fEditaGrupoProduto.Label1.Caption := 'Grupo: '+LabelCaminho.Caption;
+    fEditaGrupoProduto.Edit1.Text := IBGrupos.FieldByName('DESCRICAO').AsString;
+    fEditaGrupoProduto.ShowModal;
+    if fEditaGrupoProduto.BotaoPressionado = bpOk then
+    begin
+      EstaTabela.Active := false;
+      EstaTabela.SQL.Clear;
+      EstaTabela.SQL.Add('Select Count(*) Q from GRUPOS_PRODUTOS where (CD_PAI = :CD_PAI) and (DESCRICAO = :DESCRICAO) and (CD_GRUPO <> :CD_GRUPO)');
+      if not EstaTabela.Prepared then EstaTabela.Prepare;
+      EstaTabela.ParamByName('DESCRICAO').AsString := fEditaGrupoProduto.Edit1.Text;
+      EstaTabela.ParamByName('CD_PAI').AsInteger   := IBGrupos.FieldByName('CD_PAI').AsInteger;
+      EstaTabela.ParamByName('CD_GRUPO').AsInteger := IBGrupos.FieldByName('CD_GRUPO').AsInteger;
+      EstaTabela.Active := true;
+      if EstaTabela.FieldByName('Q').AsInteger > 0 then
+      begin
+        CM.MensagemDeAtencao('Não é possível renomear este GRUPO.'+PL+'Já existe um GRUPO com a Descrição "'+fEditaGrupoProduto.Edit1.Text+'" neste mesmo nível.');
+        Exit;
+      end;
+
+      Screen.Cursor := crHourGlass;
+      CM.AbreAviso('Alterando Grupo');
+      try
+        EstaTabela.IB_Transaction.StartTransaction;
+        EstaTabela.Active := false;
+        EstaTabela.SQL.Clear;
+        EstaTabela.SQL.Add('Update GRUPOS_PRODUTOS set DESCRICAO = :DESCRICAO where CD_GRUPO = :CD_GRUPO');
+        if not EstaTabela.Prepared then EstaTabela.Prepare;
+        EstaTabela.ParamByName('DESCRICAO').AsString := fEditaGrupoProduto.Edit1.Text;
+        EstaTabela.ParamByName('CD_GRUPO').AsInteger := IBGrupos.FieldByName('CD_GRUPO').AsInteger;
+        EstaTabela.ExecSQL;
+        EstaTabela.IB_Transaction.Commit;
+        IBGrupos.Refresh;
+        dxDBTreeView.SetFocus;
+      except
+        CM.MensagemDeErro('Não foi possível alterar este grupo');
+        EstaTabela.IB_Transaction.Rollback;
+      end;
+    end;
+  finally
+    FreeAndNil(fEditaGrupoProduto);
+    EstaTabela.Free;
+    EstaTransacao.Free;
+    CM.FechaAviso;
+  end;
+end;
+
+procedure TfCadGruposProdutos.Bt_ExcluirClick(Sender: TObject);
+var
+  EstaTabela : TIB_Query;
+  EstaTransacao : TIB_Transaction;
+  CD_PAI : Integer;
+  QuantProdVinculados : Integer;
+  QuantFilhos : Integer;
+begin
+  try
+    EstaTabela := TIB_Query.Create(self);
+    EstaTransacao := TIB_Transaction.Create(self);
+    EstaTabela.IB_Connection := ConexServer;
+    EstaTransacao.IB_Connection := ConexServer;
+    EstaTabela.IB_Transaction := EstaTransacao;
+
+    EstaTabela.Active := false;
+    EstaTabela.SQL.Clear;
+    EstaTabela.SQL.Add('select count(*) Q from GRUPOS_PRODUTOS where CD_PAI = :CD_GRUPO');
+    if not EstaTabela.Prepared then EstaTabela.Prepare;
+    EstaTabela.ParamByName('CD_GRUPO').AsInteger := IBGrupos.FieldByName('CD_GRUPO').AsInteger;
+    EstaTabela.Active := true;
+    QuantFilhos := EstaTabela.FieldByName('Q').AsInteger;
+    if QuantFilhos > 0 then
+    begin
+      CM.MensagemDeAtencao('Não é possível excluir um GRUPO que tenha SUBGRUPO(S).'+PL+
+                           'Este GRUPO tem '+IntToStr(QuantFilhos)+' SUBGRUPO(S)');
+      Exit;
+    end;
+
+    EstaTabela.Active := false;
+    EstaTabela.SQL.Clear;
+    EstaTabela.SQL.Add('select count(*) Q from PRODUTOS where CD_GRUPO = :CD_GRUPO');
+    if not EstaTabela.Prepared then EstaTabela.Prepare;
+    EstaTabela.ParamByName('CD_GRUPO').AsInteger := IBGrupos.FieldByName('CD_GRUPO').AsInteger;
+    EstaTabela.Active := true;
+    QuantProdVinculados := EstaTabela.FieldByName('Q').AsInteger;
+
+    Application.CreateForm(TfExcluirGrupo, fExcluirGrupo);
+
+    if QuantProdVinculados > 0 then
+    begin
+      fExcluirGrupo.lbAssociados.Visible := true;
+      fExcluirGrupo.lbOsProdutosQueFaziam.Visible := true;
+      fExcluirGrupo.lbOldGrupo2.Visible := true;
+      fExcluirGrupo.lbApartirDeAgora.Visible := true;
+      fExcluirGrupo.edGrupo.Visible := true;
+      fExcluirGrupo.btBuscaGrupo.Visible := true;
+    end
+    else begin
+      fExcluirGrupo.lbAssociados.Visible := false;
+      fExcluirGrupo.lbOsProdutosQueFaziam.Visible := false;
+      fExcluirGrupo.lbOldGrupo2.Visible := false;
+      fExcluirGrupo.lbApartirDeAgora.Visible := false;
+      fExcluirGrupo.edGrupo.Visible := false;
+      fExcluirGrupo.btBuscaGrupo.Visible := false;
+    end;
+
+    fExcluirGrupo.lbOldGrupo.Caption  := LabelCaminho.Caption;
+    fExcluirGrupo.lbOldGrupo2.Caption := LabelCaminho.Caption;
+    fExcluirGrupo.lbAssociados.Caption := 'Há '+PoeZeros(QuantProdVinculados, 2)+' Produtos associados a este GRUPO';
+
+
+    fExcluirGrupo.ShowModal;
+    if fExcluirGrupo.BotaoPressionado = bpOk then
+    begin
+      Screen.Cursor := crHourGlass;
+      CM.AbreAviso('Excluindo Grupo');
+      CD_PAI := IBGrupos.FieldByName('CD_PAI').AsInteger;
+      try
+        EstaTabela.IB_Transaction.StartTransaction;
+
+        EstaTabela.Active := false;
+        EstaTabela.SQL.Clear;
+        EstaTabela.SQL.Add('update PRODUTOS set CD_GRUPO = :CD_NEWGRUPO where CD_GRUPO = :CD_OLDGRUPO');
+        if not EstaTabela.Prepared then EstaTabela.Prepare;
+        EstaTabela.ParamByName('CD_NEWGRUPO').AsInteger := fExcluirGrupo.NovoGrupo;
+        EstaTabela.ParamByName('CD_OLDGRUPO').AsInteger := IBGrupos.FieldByName('CD_GRUPO').AsInteger;
+        EstaTabela.ExecSQL;
+
+        EstaTabela.Active := false;
+        EstaTabela.SQL.Clear;
+        EstaTabela.SQL.Add('delete from GRUPOS_PRODUTOS where CD_GRUPO = :CD_GRUPO');
+        if not EstaTabela.Prepared then EstaTabela.Prepare;
+        EstaTabela.ParamByName('CD_GRUPO').AsInteger := IBGrupos.FieldByName('CD_GRUPO').AsInteger;
+        EstaTabela.ExecSQL;
+
+        EstaTabela.IB_Transaction.Commit;
+        IBGrupos.Refresh;
+        if CD_PAI > 0 then IBGrupos.Locate('CD_GRUPO', CD_PAI, []);
+        dxDBTreeView.SetFocus;
+      except
+        CM.MensagemDeErro('Não foi possível excluir este grupo');
+        EstaTabela.IB_Transaction.Rollback;
+      end;
+    end;
+  finally
+    FreeAndNil(fExcluirGrupo);
+    EstaTabela.Free;
+    EstaTransacao.Free;
+    CM.FechaAviso;
+  end;
+end;
+
+procedure TfCadGruposProdutos.FormKeyDown(Sender: TObject; var Key: Word; Shift: TShiftState);
+begin
+  case key of
+    vk_F2 : if Bt_Incluir.Visible then Bt_Incluir.Click;
+    vk_F4 : if Bt_Excluir.Visible then Bt_Excluir.Click;
+    vk_F5 : if Bt_Alterar.Visible then Bt_Alterar.Click;
+    vk_Return : Bt_Ok.Click;
+    vk_Escape : Close;
+  end;
+end;
+
+procedure TfCadGruposProdutos.FormShow(Sender: TObject);
+begin
+  if ModoCadastro then
+  begin
+    Caption := 'Grupos de Produtos';
+    chTodos.Caption := '&Raiz';
+    dxDBTreeView.Color := clSkyBlue;
+    PanelData.Visible := true;
+    Bt_Incluir.Visible := true;
+    Bt_Excluir.Visible := true;
+    Bt_Alterar.Visible := true;
+  end
+  else begin
+    Caption := 'Seleciona Grupo';
+    chTodos.Caption := '&Todos os Grupos';
+    dxDBTreeView.Color := clMoneyGreen;
+    PanelData.Visible := false;
+    Bt_Incluir.Visible := false;
+    Bt_Excluir.Visible := false;
+    Bt_Alterar.Visible := false;
+  end;
+  if ModoExclusao then
+  begin
+    Bt_Excluir.Visible := false;
+    chTodos.Caption := '&Nenhum Grupo';
+    dxDBTreeView.Color := clYellow;
+    try Position := poDesigned; except end;
+    Left := Left + 50;
+    Top  := Top + 50;
+  end;
+
+  if dxDBTreeView.Enabled then dxDBTreeView.SetFocus
+                          else chTodos.SetFocus;
+  dxDBTreeView.FullCollapse;
+  if CD_GRUPO > 0 then
+    IBGrupos.Locate('CD_GRUPO', CD_GRUPO, [])
+  else begin
+    if AbrirNoUltimo then
+    begin
+      CD_GRUPO := LeIntegerDoRegistro(ChaveDoRegistro, 'ULT_CD_GRUPO', 0);
+      if CD_GRUPO > 0 then try IBGrupos.Locate('CD_GRUPO', CD_GRUPO, []); except end;
+    end;
+  end;
+end;
+
+procedure TfCadGruposProdutos.DataSource1DataChange(Sender: TObject; Field: TField);
+begin
+  if chTodos.Checked then
+  begin
+    if ModoCadastro then
+      LabelCaminho.Caption := '*** GRUPO RAIZ ***'
+    else
+      LabelCaminho.Caption := '*** TODOS OS GRUPOS ***';
+  end
+  else
+    LabelCaminho.Caption := CM.StringGrupo(IBGrupos.FieldByName('CD_GRUPO').AsInteger);
+end;
+
+procedure TfCadGruposProdutos.dxDBTreeViewDblClick(Sender: TObject);
+begin
+  if dxDBTreeView.Enabled then
+    Bt_Ok.Click;
+end;
+
+procedure TfCadGruposProdutos.FormClose(Sender: TObject; var Action: TCloseAction);
+begin
+  SalvaIntegerNoRegistro(ChaveDoRegistro, 'ULT_CD_GRUPO', IBGrupos.FieldByName('CD_GRUPO').AsInteger);
+end;
+
+procedure TfCadGruposProdutos.chTodosClick(Sender: TObject);
+begin
+  dxDBTreeView.Enabled := not chTodos.Checked;
+  Bt_Excluir.Enabled   := not chTodos.Checked;
+  Bt_Alterar.Enabled   := not chTodos.Checked;
+
+  if chTodos.Checked then
+  begin
+    dxDBTreeView.Color := clBtnFace;
+    if ModoCadastro then LabelCaminho.Caption := '*** GRUPO RAIZ ***'
+                    else LabelCaminho.Caption := '*** TODOS OS GRUPOS ***';
+  end
+  else begin
+    if ModoCadastro then dxDBTreeView.Color := clSkyBlue
+                    else dxDBTreeView.Color := clMoneyGreen;;
+  end
+end;
+
+end.

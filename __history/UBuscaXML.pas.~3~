@@ -1,0 +1,32 @@
+unit UBuscaXML;
+
+interface
+
+uses
+  Windows, Messages, SysUtils, Variants, Classes, Graphics, Controls, Forms,
+  Dialogs, StdCtrls, Mask, JvExMask, JvToolEdit, ExtCtrls, Buttons;
+
+type
+  TfBuscaXML = class(TForm)
+    Panel1: TPanel;
+    Label2: TLabel;
+    EditDirXML: TJvDirectoryEdit;
+    Label1: TLabel;
+    EditChaveNFE: TEdit;
+    Panel2: TPanel;
+    btnOk: TBitBtn;
+    btnCancelar: TBitBtn;
+  private
+    { Private declarations }
+  public
+    { Public declarations }
+  end;
+
+var
+  fBuscaXML: TfBuscaXML;
+
+implementation
+
+{$R *.dfm}
+
+end.

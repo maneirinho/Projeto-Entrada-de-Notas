@@ -1,0 +1,23 @@
+﻿<?xml version="1.0" encoding="utf-8"?>
+<BorlandProject>
+	<Transactions>
+    <Transaction>2011/08/23 10:48:17.879.dproj,C:\Users\Focus\Documents\RAD Studio\Projects\Project1.dproj=C:\Projetos\Focus Entrada de notas\Entrada XML\EntradadeNotasXML.dproj</Transaction>
+    <Transaction>2011/08/23 11:08:00.484.pas,C:\Projetos\Focus Entrada de notas\Entrada XML\Unit1.pas=C:\Projetos\Focus Entrada de notas\Entrada XML\UDataMod.pas</Transaction>
+    <Transaction>2011/08/23 11:08:00.484.dfm,C:\Projetos\Focus Entrada de notas\Entrada XML\Unit1.dfm=C:\Projetos\Focus Entrada de notas\Entrada XML\UDataMod.dfm</Transaction>
+    <Transaction>2011/08/23 13:49:17.780.pas,C:\Projetos\Focus Entrada de notas\Entrada XML\UDataMod.pas=</Transaction>
+    <Transaction>2011/08/23 13:49:17.780.dfm,C:\Projetos\Focus Entrada de notas\Entrada XML\UDataMod.dfm=</Transaction>
+    <Transaction>2011/08/30 11:11:59.504.pas,C:\Projetos\Focus Entrada de notas\USistemaExpirado.pas=</Transaction>
+    <Transaction>2011/08/30 11:11:59.505.dfm,C:\Projetos\Focus Entrada de notas\USistemaExpirado.dfm=</Transaction>
+    <Transaction>2011/08/30 13:38:39.740.pas,C:\Projetos\Focus Entrada de notas\USistemaExpiradoTimer.pas=</Transaction>
+    <Transaction>2011/08/30 13:38:39.740.dfm,C:\Projetos\Focus Entrada de notas\USistemaExpiradoTimer.dfm=</Transaction>
+    <Transaction>2011/09/02 13:40:00.975.pas,C:\Projetos\Focus Entrada de notas\UImpPedidoCompra.pas=</Transaction>
+    <Transaction>2011/09/02 13:40:00.975.dfm,C:\Projetos\Focus Entrada de notas\UImpPedidoCompra.dfm=</Transaction>
+    <Transaction>2011/09/05 10:30:29.324.pas,C:\Projetos\Focus Entrada de notas\UValidade.pas=</Transaction>
+    <Transaction>2011/09/15 13:20:04.978.pas,C:\Projetos\Focus Entrada de notas\Entrada XML\Unit1.pas=C:\Projetos\Focus Entrada de notas\UBuscaXML.pas</Transaction>
+    <Transaction>2011/09/15 13:20:04.978.dfm,C:\Projetos\Focus Entrada de notas\Entrada XML\Unit1.dfm=C:\Projetos\Focus Entrada de notas\UBuscaXML.dfm</Transaction>
+    <Transaction>2011/09/26 14:59:02.737.pas,C:\Projetos\Focus Entrada de notas\Entrada XML\Unit1.pas=C:\Projetos\Focus Entrada de notas\UCadLocalizaFornecedor.pas</Transaction>
+    <Transaction>2011/09/26 14:59:02.737.dfm,C:\Projetos\Focus Entrada de notas\Entrada XML\Unit1.dfm=C:\Projetos\Focus Entrada de notas\UCadLocalizaFornecedor.dfm</Transaction>
+    <Transaction>2011/10/17 09:15:06.073.pas,C:\Projetos\Focus Entrada de notas\Entrada XML\Unit1.pas=C:\Projetos\Focus Entrada de notas\ULotesProduto.pas</Transaction>
+    <Transaction>2011/10/17 09:15:06.073.dfm,C:\Projetos\Focus Entrada de notas\Entrada XML\Unit1.dfm=C:\Projetos\Focus Entrada de notas\ULotesProduto.dfm</Transaction>
+  </Transactions>
+</BorlandProject>

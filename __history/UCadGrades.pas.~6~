@@ -1,0 +1,705 @@
+unit UCadGrades;
+
+interface
+
+uses
+  Windows, Messages, SysUtils, Variants, Classes, Graphics, Controls, Forms,
+  Dialogs, StdCtrls, Buttons, ExtCtrls, Grids, Wwdbigrd, Wwdbgrid, UEditaGrade,
+  UConstVar, IB_Access, IB_Components, IBODataset, DB, MessageFunctions;
+
+type
+  TfCadGrades = class(TForm)
+    lbNomeDoProduto: TLabel;
+    wwDBGridGrades: TwwDBGrid;
+    Panel7: TPanel;
+    btIncluirGrade: TBitBtn;
+    btExcluirGrade: TBitBtn;
+    btAlterarGrade: TBitBtn;
+    DataSource2: TDataSource;
+    IBGrades: TIBOQuery;
+    IBGradesCOD_BARRAS: TStringField;
+    IBGradesNM_GRADE: TStringField;
+    TRGrades: TIBOTransaction;
+    lbCodProduto: TLabel;
+    Bt_Sair: TBitBtn;
+    IBGradesCD_GRADE: TIntegerField;
+    IBGradesESTOQUEATUAL: TBCDField;
+    btAlteraEstoque: TBitBtn;
+    btTransfItem: TBitBtn;
+    procedure wwDBGridGradesDblClick(Sender: TObject);
+    procedure DataSource2DataChange(Sender: TObject; Field: TField);
+    procedure btIncluirGradeClick(Sender: TObject);
+    procedure btExcluirGradeClick(Sender: TObject);
+    procedure btAlterarGradeClick(Sender: TObject);
+    procedure Bt_SairClick(Sender: TObject);
+    procedure FormKeyDown(Sender: TObject; var Key: Word; Shift: TShiftState);
+    procedure FormShow(Sender: TObject);
+    procedure FormCreate(Sender: TObject);
+    procedure btAlteraEstoqueClick(Sender: TObject);
+    procedure FormClose(Sender: TObject; var Action: TCloseAction);
+    procedure btTransfItemClick(Sender: TObject);
+  private
+  public
+    CodProduto : Integer;
+    CodGrupo   : Integer;
+  end;
+
+var
+  fCadGrades: TfCadGrades;
+
+implementation
+
+uses DUtilit, UComum, UEstoquesDepositos, UAltEstoque,
+     UDataMod, UModUsuarios, DBFunctions; //   UPerifericos,
+
+{$R *.dfm}
+
+procedure TfCadGrades.wwDBGridGradesDblClick(Sender: TObject);
+begin
+  btAlterarGrade.Click;
+end;
+
+procedure TfCadGrades.DataSource2DataChange(Sender: TObject; Field: TField);
+begin
+  btAlterarGrade.Enabled := not IBGrades.IsEmpty;
+  btExcluirGrade.Enabled := not IBGrades.IsEmpty;
+end;
+
+procedure TfCadGrades.btIncluirGradeClick(Sender: TObject);
+var
+  codGrade : integer;
+begin
+  Application.CreateForm(TfEditaGrade, fEditaGrade);
+  fEditaGrade.Modo := mdInclusao;
+  fEditaGrade.Origem := orCadastro;
+  fEditaGrade.CD_PRODUTO := CodProduto;
+  fEditaGrade.CD_GRUPO   := CodGrupo;
+  fEditaGrade.ShowModal;
+  if fEditaGrade.BotaoPressionado = bpOk then
+  begin
+    with CM do
+    begin
+      CodGrade := CM.CodigoWeb(fDB.GetValorDoGenerator(DtM.IBDatabaseServer, 'GEN_CD_GRADE'));
+      if not IBTabela.IB_Transaction.InTransaction then IBTabela.IB_Transaction.StartTransaction;
+      try
+        IBTabela.Active := false;
+        IBTabela.SQL.Clear;
+
+        IBTabela.SQL.Add('Insert into GRADES ');
+        IBTabela.SQL.Add('( CD_PRODUTO,  CD_GRADE,  NM_GRADE,  COD_BARRAS)');
+        IBTabela.SQL.Add(' values ');
+        IBTabela.SQL.Add('(:CD_PRODUTO, :CD_GRADE, :NM_GRADE, :COD_BARRAS)');
+        if not IBTabela.Prepared then IBTabela.Prepare;
+        IBTabela.ParamByName('CD_GRADE').AsInteger    := CodGrade;
+        IBTabela.ParamByName('CD_PRODUTO').AsInteger  := CodProduto;
+        IBTabela.ParamByName('NM_GRADE').AsString     := fEditaGrade.edDescricao.Text;
+        IBTabela.ParamByName('COD_BARRAS').AsString   := fEditaGrade.edCodigo.Text;
+        IBTabela.ExecSQL;
+        IBTabela.IB_Transaction.Commit;
+
+        CM.AlteraEstoque(CodProduto, codGrade, CM.PegaDepositoEntradaOuSaida('E'), fEditaGrade.edEstoque.Value, 0, 'E', 'Nova Grade', RegUsuario.Login);
+      except
+        IBTabela.IB_Transaction.Rollback;
+        MensagemDeErro('Não foi possível incluir esta grade');
+      end;
+    end;
+  end;
+  FreeAndNil(fEditaGrade);
+  try
+    IBGrades.Refresh;
+    IBGrades.Locate('CD_GRADE', codGrade, []);
+  except
+  end;
+end;
+
+procedure TfCadGrades.btExcluirGradeClick(Sender: TObject);
+begin
+  with CM do
+  begin
+    if MensagemDeConfirmacao('Deseja realmente excluir esta grade?') <> mrYes then Exit;
+
+    if not IBTabela.IB_Transaction.InTransaction then IBTabela.IB_Transaction.StartTransaction;
+    try
+      IBTabela.Active := false;
+      IBTabela.SQL.Clear;
+      IBTabela.SQL.Add('delete from GRADES         ');
+      IBTabela.SQL.Add('where CD_GRADE = :CD_GRADE ');
+      if not IBTabela.Prepared then IBTabela.Prepare;
+      IBTabela.ParamByName('CD_GRADE').AsInteger := IBGrades.FieldByName('CD_GRADE').AsInteger;
+      IBTabela.ExecSQL;
+      IBTabela.IB_Transaction.Commit;
+      IBGrades.Refresh;
+    except
+      IBTabela.IB_Transaction.Rollback;
+      MensagemDeErro('Não foi possível excluir esta grade');
+    end;
+  end;
+end;
+
+procedure TfCadGrades.btAlterarGradeClick(Sender: TObject);
+begin
+  Application.CreateForm(TfEditaGrade, fEditaGrade);
+  fEditaGrade.Modo := mdAlteracao;
+  fEditaGrade.Origem := orCadastro;
+  try fEditaGrade.CD_GRADE := IBGrades.FieldByName('CD_GRADE').AsInteger; except end;
+  fEditaGrade.CD_PRODUTO := CodProduto;
+  fEditaGrade.CD_GRUPO   := CodGrupo;
+  fEditaGrade.edCodigo.Text    := IBGrades.FieldByName('COD_BARRAS').AsString;
+  fEditaGrade.edDescricao.Text := IBGrades.FieldByName('NM_GRADE').AsString;
+  fEditaGrade.edEstoque.Visible := false;
+  fEditaGrade.lbEstoque.Visible := false;
+  fEditaGrade.Width := 490;
+
+  fEditaGrade.ShowModal;
+  if fEditaGrade.BotaoPressionado = bpOk then
+  begin
+    with CM do
+    begin
+      if not IBTabela.IB_Transaction.InTransaction then IBTabela.IB_Transaction.StartTransaction;
+      try
+        IBTabela.Active := false;
+        IBTabela.SQL.Clear;
+        IBTabela.SQL.Add('update GRADES set              ');
+        IBTabela.SQL.Add('  NM_GRADE     = :NM_GRADE,    ');
+        IBTabela.SQL.Add('  COD_BARRAS   = :COD_BARRAS  ');
+        IBTabela.SQL.Add('where CD_PRODUTO = :CD_PRODUTO ');
+        IBTabela.SQL.Add('and   CD_GRADE = :CD_GRADE     ');
+        if not IBTabela.Prepared then IBTabela.Prepare;
+        IBTabela.ParamByName('CD_PRODUTO').AsInteger := CodProduto;
+        IBTabela.ParamByName('CD_GRADE').AsInteger   := IBGrades.FieldByName('CD_GRADE').AsInteger;
+        IBTabela.ParamByName('NM_GRADE').AsString    := fEditaGrade.edDescricao.Text;
+        IBTabela.ParamByName('COD_BARRAS').AsString  := fEditaGrade.edCodigo.Text;
+        IBTabela.ExecSQL;
+        IBTabela.IB_Transaction.Commit;
+        try IBGrades.Refresh; except end;
+      except
+        IBTabela.IB_Transaction.Rollback;
+        MensagemDeErro('Não foi possível alterar esta grade');
+      end;
+    end;
+  end;
+  FreeAndNil(fEditaGrade);
+end;
+
+procedure TfCadGrades.Bt_SairClick(Sender: TObject);
+begin
+  Close;
+end;
+
+procedure TfCadGrades.FormKeyDown(Sender: TObject; var Key: Word; Shift: TShiftState);
+begin
+  case key of
+    vk_F2     : if (Shift = []) and (btIncluirGrade.Enabled)  then btIncluirGrade.Click;
+    vk_F4     : if (Shift = []) and (btExcluirGrade.Enabled)  then btExcluirGrade.Click;
+    vk_F5     : if (Shift = []) and (btAlterarGrade.Enabled)  then btAlterarGrade.Click;
+    vk_F6     : if (Shift = []) and (btAlteraEstoque.Enabled) then btAlteraEstoque.Click;
+    VK_ESCAPE : if (Shift = []) then Bt_Sair.Click;
+  end;
+end;
+
+procedure TfCadGrades.FormCreate(Sender: TObject);
+begin
+  IBGrades.Active := false;
+  CodProduto := 0;
+  CodGrupo   := 0;
+end;
+
+procedure TfCadGrades.FormShow(Sender: TObject);
+begin
+  try
+    with CM do
+    begin
+      IBTabela.Active := false;
+      IBTabela.SQL.Clear;
+      IBTabela.SQL.Add('Select COD_BARRAS, NM_PRODUTO from PRODUTOS where CD_PRODUTO = :CD_PRODUTO');
+      if not IBTabela.Prepared then IBTabela.Prepare;
+      IBTabela.ParamByName('CD_PRODUTO').AsInteger := CodProduto;
+      IBTabela.Active := true;
+      lbCodProduto.Caption := IBTabela.FieldByName('COD_BARRAS').AsString;
+      lbNomeDoProduto.Caption := IBTabela.FieldByName('NM_PRODUTO').AsString;
+      fDB.FechaTT(IBTabela);
+    end;
+
+    IBGrades.Active := false;
+    IBGrades.SQL.Clear;
+    IBGrades.SQL.Add('select G.CD_GRADE, G.COD_BARRAS, G.NM_GRADE, coalesce(E.ESTOQUEATUAL, 0) as ESTOQUEATUAL  ');
+    IBGrades.SQL.Add('from GRADES G                                                                             ');
+    IBGrades.SQL.Add('left outer join SP_PEGAESTOQUE(:CD_PRODUTO, G.CD_GRADE, 0) E on (1=1)                     ');
+    IBGrades.SQL.Add('where G.CD_PRODUTO = :CD_PRODUTO                                                          ');
+    IBGrades.SQL.Add('order by G.NM_GRADE');
+    if not IBGrades.Prepared then IBGrades.Prepare;
+    IBGrades.ParamByName('CD_PRODUTO').AsInteger := CodProduto;
+    IBGrades.Active := true;
+    IBGrades.Fields[0].DisplayLabel := ConfigCadastro.GradeCampoCodigo;
+    IBGrades.Fields[1].DisplayLabel := ConfigCadastro.GradeCampoDescricao;
+
+    btIncluirGrade.SetFocus;
+  except
+  end;
+end;
+
+procedure TfCadGrades.btAlteraEstoqueClick(Sender: TObject);
+begin
+  if not mUsers.TemAcessoPermissao(sgEstoque, 'A') then Exit;
+
+  if CM.TemDepositos then
+  begin
+    Application.CreateForm(TfEstoqueDepositos, fEstoqueDepositos);
+    fEstoqueDepositos.CodProduto := CodProduto;
+    fEstoqueDepositos.CodGrade   := IBGrades.FieldByName('CD_GRADE').AsInteger;
+    fEstoqueDepositos.ShowModal;
+    FreeAndNil(fEstoqueDepositos);
+  end
+  else begin
+    Application.CreateForm(TfEstoqueSimples, fEstoqueSimples);
+    fEstoqueSimples.CodProduto := CodProduto;
+    fEstoqueSimples.CodGrade   := IBGrades.FieldByName('CD_GRADE').AsInteger;
+    fEstoqueSimples.ShowModal;
+    FreeAndNil(fEstoqueSimples);
+  end;
+
+  IBGrades.Refresh;
+end;
+
+procedure TfCadGrades.FormClose(Sender: TObject; var Action: TCloseAction);
+begin
+  fDB.FechaTT(IBGrades);
+end;
+
+procedure TfCadGrades.btTransfItemClick(Sender: TObject);
+var
+  NM_PRODUTO : String;
+  CD_NEWPRODUTO : integer;
+  CD_OLDPRODUTO : integer;
+  CD_OLDGRADE   : integer;
+  CD_NEWGRADE   : integer;
+  EstaTabela : TIB_Query;
+  EstaTransacao : TIB_Transaction;
+  Campos : TStrings;
+  AindaTemGrades : boolean;
+  PodeApagarProduto : boolean;
+  i : integer;
+begin
+  AindaTemGrades := true;
+  CD_NEWGRADE   := 0;
+  CD_OLDGRADE   := IBGrades.FieldByname('CD_GRADE').AsInteger;
+  CD_OLDPRODUTO := CodProduto;
+
+  NM_PRODUTO := lbNomeDoProduto.Caption+' '+IBGrades.FieldByname('NM_GRADE').AsString;
+  if MensagemDeConfirmacao('Deseja realmente Transformar a GRADE do PRODUTO:'+PL+
+                               IBGrades.FieldByname('COD_BARRAS').AsString+' - '+IBGrades.FieldByname('NM_GRADE').AsString+PL+PL+
+                              'Em um Novo PRODUTO:'+PL+
+                               IBGrades.FieldByname('COD_BARRAS').AsString+' - '+NM_PRODUTO +' ?'+PL+PL+
+                              'Esta Operação é IRREVERSÍVEL!', 'ATENÇÃO', mbNo) <> mrYes then Exit;
+
+
+  try
+    Screen.Cursor := crHourGlass;
+    AbreAviso('Transformando Grade em Produto');
+
+    EstaTabela    := TIB_Query.Create(self);
+    EstaTransacao := TIB_Transaction.Create(self);
+    EstaTabela.IB_Connection    := DtM.IBDatabaseServer;
+    EstaTransacao.IB_Connection := DtM.IBDatabaseServer;
+    EstaTabela.IB_Transaction   := EstaTransacao;
+
+    try
+      if not EstaTabela.IB_Transaction.InTransaction then EstaTabela.IB_Transaction.StartTransaction;
+
+      // Cria o novo Produto...
+      LabelAviso('Criando Novo Produto');
+
+      CM.IBTabela.Active := false;
+      CM.IBTabela.SQL.Clear;
+      CM.IBTabela.SQL.Add('Select * from PRODUTOS where CD_PRODUTO = :CD_OLDPRODUTO');
+      if not CM.IBTabela.Prepared then CM.IBTabela.Prepare;
+      CM.IBTabela.ParamByName('CD_OLDPRODUTO').AsInteger := CD_OLDPRODUTO;
+      CM.IBTabela.Active := true;
+
+      // Pega os Campos de PRODUTOS
+      Campos := TStringList.Create;
+      DtM.IBDatabaseServer.SchemaCache.GetTableFields('PRODUTOS', Campos);
+      Campos.Delete(LocalizaTString(Campos, 'CD_PRODUTO', [locCaseInsensitive]));
+
+      EstaTabela.Active := false;
+      EstaTabela.SQL.Clear;
+      EstaTabela.SQL.Add('Insert into PRODUTOS ('+Campos[0] );
+      for i := 1 to Campos.Count-1 do
+        EstaTabela.SQL.Add(', '+Campos[i]);
+      EstaTabela.SQL.Add(') values ( :'+Campos[0]);
+      for i := 1 to Campos.Count-1 do
+        EstaTabela.SQL.Add(', :'+Campos[i]);
+      EstaTabela.SQL.Add(') Returning CD_PRODUTO');
+
+      if not EstaTabela.Prepared then EstaTabela.Prepare;
+
+      // Define Parametros
+      Campos.Delete(LocalizaTString(Campos, 'NM_PRODUTO', [locCaseInsensitive]));
+      Campos.Delete(LocalizaTString(Campos, 'COD_BARRAS', [locCaseInsensitive]));
+      EstaTabela.ParamByName('NM_PRODUTO').AsString := NM_PRODUTO;
+      EstaTabela.ParamByName('COD_BARRAS').AsString := IBGrades.FieldByname('COD_BARRAS').AsString;
+      for i := 0 to Campos.Count-1 do
+        EstaTabela.ParamByName(Campos[i]).Value := CM.IBTabela.FieldByName(Campos[i]).Value;
+
+      fDB.FechaTT(CM.IBTabela);
+      EstaTabela.ExecSQL;
+      CD_NEWPRODUTO := EstaTabela.FieldByName('CD_PRODUTO').AsInteger;
+
+      // Direciona As Vendas...
+      LabelAviso('Direcionando PEDIDO');
+      EstaTabela.Active := false;
+      EstaTabela.SQL.Clear;
+      EstaTabela.SQL.Add('Update PEDIDO_ITEM set             ');
+      EstaTabela.SQL.Add('  CD_PRODUTO = :CD_NEWPRODUTO,     ');
+      EstaTabela.SQL.Add('  CD_GRADE = :CD_NEWGRADE          ');
+      EstaTabela.SQL.Add('where                              ');
+      EstaTabela.SQL.Add('  CD_PRODUTO = :CD_OLDPRODUTO  and ');
+      EstaTabela.SQL.Add('  CD_GRADE = :CD_OLDGRADE          ');
+      if not EstaTabela.Prepared then EstaTabela.Prepare;
+      EstaTabela.ParamByName('CD_NEWPRODUTO').AsInteger := CD_NEWPRODUTO;
+      EstaTabela.ParamByName('CD_OLDPRODUTO').AsInteger := CD_OLDPRODUTO;
+      EstaTabela.ParamByName('CD_OLDGRADE').AsInteger   := CD_OLDGRADE;
+      EstaTabela.ParamByName('CD_NEWGRADE').AsInteger   := CD_NEWGRADE;
+      EstaTabela.ExecSQL;
+
+      // Direciona Estoque...
+      LabelAviso('Direcionando Estoque');
+
+      EstaTabela.Active := false;
+      EstaTabela.SQL.Clear;
+      EstaTabela.SQL.Add('update ESTOQUE set                 ');
+      EstaTabela.SQL.Add('  CD_PRODUTO = :CD_NEWPRODUTO,     ');
+      EstaTabela.SQL.Add('  CD_GRADE = :CD_NEWGRADE          ');
+      EstaTabela.SQL.Add('where                              ');
+      EstaTabela.SQL.Add('  CD_PRODUTO = :CD_OLDPRODUTO  and ');
+      EstaTabela.SQL.Add('  CD_GRADE = :CD_OLDGRADE          ');
+      if not EstaTabela.Prepared then EstaTabela.Prepare;
+      EstaTabela.ParamByName('CD_NEWPRODUTO').AsInteger := CD_NEWPRODUTO;
+      EstaTabela.ParamByName('CD_OLDPRODUTO').AsInteger := CD_OLDPRODUTO;
+      EstaTabela.ParamByName('CD_OLDGRADE').AsInteger   := CD_OLDGRADE;
+      EstaTabela.ParamByName('CD_NEWGRADE').AsInteger   := 0;
+      EstaTabela.ExecSQL;
+
+      // Direciona Entrada de Notas...
+      LabelAviso('Direcionando Entrada de Notas');
+
+      CM.IBTabela.Active := false;
+      CM.IBTabela.SQL.Clear;
+      CM.IBTabela.SQL.Add('Select * from ENTRADA_ITEM where CD_PRODUTO = :CD_OLDPRODUTO');
+      if not CM.IBTabela.Prepared then CM.IBTabela.Prepare;
+      CM.IBTabela.ParamByName('CD_OLDPRODUTO').AsInteger := CD_OLDPRODUTO;
+      CM.IBTabela.Active := true;
+
+      while not CM.IBTabela.eof do
+      begin
+        EstaTabela.Active := false;
+        EstaTabela.SQL.Clear;
+
+        // Pega os Campos de ENTRADA_ITEM
+        Campos := TStringList.Create;
+        DtM.IBDatabaseServer.SchemaCache.GetTableFields('ENTRADA_ITEM', Campos);
+        Campos.Delete(LocalizaTString(Campos, 'CD_ITEM', [locCaseInsensitive]));
+
+        EstaTabela.Active := false;
+        EstaTabela.SQL.Clear;
+        EstaTabela.SQL.Add('Insert into ENTRADA_ITEM ('+Campos[0] );
+        for i := 1 to Campos.Count-1 do
+          EstaTabela.SQL.Add(', '+Campos[i]);
+        EstaTabela.SQL.Add(') values ( :'+Campos[0]);
+        for i := 1 to Campos.Count-1 do
+          EstaTabela.SQL.Add(', :'+Campos[i]);
+        EstaTabela.SQL.Add(') ');
+
+        if not EstaTabela.Prepared then EstaTabela.Prepare;
+
+        // Define Parametros
+        Campos.Delete(LocalizaTString(Campos, 'CD_PRODUTO', [locCaseInsensitive]));
+        EstaTabela.ParamByName('CD_PRODUTO').Value := CD_NEWPRODUTO;
+        for i := 0 to Campos.Count-1 do
+          EstaTabela.ParamByName(Campos[i]).Value := CM.IBTabela.FieldByName(Campos[i]).Value;
+
+        EstaTabela.ExecSQL;
+
+        CM.IBTabela.next;
+      end;
+      fDB.FechaTT(CM.IBTabela);
+
+      EstaTabela.Active := false;
+      EstaTabela.SQL.Clear;
+      EstaTabela.SQL.Add('update ENTRADA_ITEM NI                         ');
+      EstaTabela.SQL.Add('  set NI.QUANTIDADE = NI.QUANTIDADE -      ');
+      EstaTabela.SQL.Add('     (select G.QUANTIDADE from ENTRADA_GRADE G ');
+      EstaTabela.SQL.Add('        where G.CD_GRADE = :CD_OLDGRADE    ');
+      EstaTabela.SQL.Add('        and G.CD_PRODUTO = NI.CD_PRODUTO   ');
+      EstaTabela.SQL.Add('        and G.CD_NOTA = NI.CD_NOTA )       ');
+      EstaTabela.SQL.Add('where NI.CD_PRODUTO = :CD_OLDPRODUTO       ');
+      if not EstaTabela.Prepared then EstaTabela.Prepare;
+      EstaTabela.ParamByName('CD_OLDPRODUTO').AsInteger := CD_OLDPRODUTO;
+      EstaTabela.ParamByName('CD_OLDGRADE').AsInteger   := CD_OLDGRADE;
+      EstaTabela.ExecSQL;
+
+      EstaTabela.Active := false;
+      EstaTabela.SQL.Clear;
+      EstaTabela.SQL.Add('delete from ENTRADA_GRADE          ');
+      EstaTabela.SQL.Add('where                          ');
+      EstaTabela.SQL.Add('  CD_GRADE = :CD_OLDGRADE and  ');
+      EstaTabela.SQL.Add('  CD_PRODUTO = :CD_OLDPRODUTO  ');
+      if not EstaTabela.Prepared then EstaTabela.Prepare;
+      EstaTabela.ParamByName('CD_OLDGRADE').AsInteger   := CD_NEWGRADE;
+      EstaTabela.ParamByName('CD_OLDPRODUTO').AsInteger := CD_OLDPRODUTO;
+      EstaTabela.ExecSQL;
+
+      EstaTabela.Active := false;
+      EstaTabela.SQL.Clear;
+      EstaTabela.SQL.Add('delete from ENTRADA_ITEM NI              ');
+      EstaTabela.SQL.Add('where NI.CD_PRODUTO = :CD_OLDPRODUTO ');
+      EstaTabela.SQL.Add('  and NI.QUANTIDADE = 0              ');
+      if not EstaTabela.Prepared then EstaTabela.Prepare;
+      EstaTabela.ParamByName('CD_OLDPRODUTO').AsInteger := CD_OLDPRODUTO;
+      EstaTabela.ExecSQL;
+
+      // Direciona As Transferências...
+      LabelAviso('Direcionando Transferências');
+      EstaTabela.Active := false;
+      EstaTabela.SQL.Clear;
+      EstaTabela.SQL.Add('Update TRANSFERENCIAS_ITEMS set    ');
+      EstaTabela.SQL.Add('  CD_PRODUTO = :CD_NEWPRODUTO,     ');
+      EstaTabela.SQL.Add('  CD_GRADE = :CD_NEWGRADE          ');
+      EstaTabela.SQL.Add('where                              ');
+      EstaTabela.SQL.Add('  CD_PRODUTO = :CD_OLDPRODUTO  and ');
+      EstaTabela.SQL.Add('  CD_GRADE = :CD_OLDGRADE          ');
+      if not EstaTabela.Prepared then EstaTabela.Prepare;
+      EstaTabela.ParamByName('CD_NEWPRODUTO').AsInteger := CD_NEWPRODUTO;
+      EstaTabela.ParamByName('CD_OLDPRODUTO').AsInteger := CD_OLDPRODUTO;
+      EstaTabela.ParamByName('CD_OLDGRADE').AsInteger   := CD_OLDGRADE;
+      EstaTabela.ParamByName('CD_NEWGRADE').AsInteger   := CD_NEWGRADE;
+      EstaTabela.ExecSQL;
+
+      // Direciona os Inventários...
+      LabelAviso('Direcionando Inventários');
+      EstaTabela.Active := false;
+      EstaTabela.SQL.Clear;
+      EstaTabela.SQL.Add('Update INVENTARIOS_ITEMS set       ');
+      EstaTabela.SQL.Add('  CD_PRODUTO = :CD_NEWPRODUTO,     ');
+      EstaTabela.SQL.Add('  CD_GRADE = :CD_NEWGRADE          ');
+      EstaTabela.SQL.Add('where                              ');
+      EstaTabela.SQL.Add('  CD_PRODUTO = :CD_OLDPRODUTO and  ');
+      EstaTabela.SQL.Add('  CD_GRADE = :CD_OLDGRADE          ');
+      if not EstaTabela.Prepared then EstaTabela.Prepare;
+      EstaTabela.ParamByName('CD_NEWPRODUTO').AsInteger := CD_NEWPRODUTO;
+      EstaTabela.ParamByName('CD_OLDPRODUTO').AsInteger := CD_OLDPRODUTO;
+      EstaTabela.ParamByName('CD_NEWGRADE').AsInteger   := CD_NEWGRADE;
+      EstaTabela.ParamByName('CD_OLDGRADE').AsInteger   := CD_OLDGRADE;
+      EstaTabela.ExecSQL;
+
+      // Direciona as Devoluções...
+      LabelAviso('Direcionando Devoluções');
+      EstaTabela.Active := false;
+      EstaTabela.SQL.Clear;
+      EstaTabela.SQL.Add('Update DEVOLUCOES_ITEMS set        ');
+      EstaTabela.SQL.Add('  CD_PRODUTO = :CD_NEWPRODUTO,     ');
+      EstaTabela.SQL.Add('  CD_GRADE = :CD_NEWGRADE          ');
+      EstaTabela.SQL.Add('where                              ');
+      EstaTabela.SQL.Add('  CD_PRODUTO = :CD_OLDPRODUTO and  ');
+      EstaTabela.SQL.Add('  CD_GRADE = :CD_OLDGRADE          ');
+      if not EstaTabela.Prepared then EstaTabela.Prepare;
+      EstaTabela.ParamByName('CD_NEWPRODUTO').AsInteger := CD_NEWPRODUTO;
+      EstaTabela.ParamByName('CD_OLDPRODUTO').AsInteger := CD_OLDPRODUTO;
+      EstaTabela.ParamByName('CD_NEWGRADE').AsInteger   := CD_NEWGRADE;
+      EstaTabela.ParamByName('CD_OLDGRADE').AsInteger   := CD_OLDGRADE;
+      EstaTabela.ExecSQL;
+
+      // Direciona os Kits...
+      LabelAviso('Direcionando Kits');
+      EstaTabela.Active := false;
+      EstaTabela.SQL.Clear;
+      EstaTabela.SQL.Add('Update KIT set                     ');
+      EstaTabela.SQL.Add('  CD_PRODUTO = :CD_NEWPRODUTO,     ');
+      EstaTabela.SQL.Add('  CD_GRADE = :CD_NEWGRADE          ');
+      EstaTabela.SQL.Add('where                              ');
+      EstaTabela.SQL.Add('  CD_PRODUTO = :CD_OLDPRODUTO and  ');
+      EstaTabela.SQL.Add('  CD_GRADE = :CD_OLDGRADE          ');
+      if not EstaTabela.Prepared then EstaTabela.Prepare;
+      EstaTabela.ParamByName('CD_NEWPRODUTO').AsInteger := CD_NEWPRODUTO;
+      EstaTabela.ParamByName('CD_OLDPRODUTO').AsInteger := CD_OLDPRODUTO;
+      EstaTabela.ParamByName('CD_NEWGRADE').AsInteger   := CD_NEWGRADE;
+      EstaTabela.ParamByName('CD_OLDGRADE').AsInteger   := CD_OLDGRADE;
+      EstaTabela.ExecSQL;
+
+      // Direciona os RMAs...
+      LabelAviso('Direcionando RMA');
+      EstaTabela.Active := false;
+      EstaTabela.SQL.Clear;
+      EstaTabela.SQL.Add('Update RMA set                     ');
+      EstaTabela.SQL.Add('  CD_PRODUTO = :CD_NEWPRODUTO,     ');
+      EstaTabela.SQL.Add('  CD_GRADE = :CD_NEWGRADE          ');
+      EstaTabela.SQL.Add('where                              ');
+      EstaTabela.SQL.Add('  CD_PRODUTO = :CD_OLDPRODUTO and  ');
+      EstaTabela.SQL.Add('  CD_GRADE = :CD_OLDGRADE          ');
+      if not EstaTabela.Prepared then EstaTabela.Prepare;
+      EstaTabela.ParamByName('CD_NEWPRODUTO').AsInteger := CD_NEWPRODUTO;
+      EstaTabela.ParamByName('CD_OLDPRODUTO').AsInteger := CD_OLDPRODUTO;
+      EstaTabela.ParamByName('CD_NEWGRADE').AsInteger   := CD_NEWGRADE;
+      EstaTabela.ParamByName('CD_OLDGRADE').AsInteger   := CD_OLDGRADE;
+      EstaTabela.ExecSQL;
+
+      // Detona Grade...
+      LabelAviso('Apagando Grade');
+      EstaTabela.Active := false;
+      EstaTabela.SQL.Clear;
+      EstaTabela.SQL.Add('Delete from GRADES                 ');
+      EstaTabela.SQL.Add('where                              ');
+      EstaTabela.SQL.Add('  CD_PRODUTO = :CD_OLDPRODUTO and  ');
+      EstaTabela.SQL.Add('  CD_GRADE = :CD_OLDGRADE          ');
+      if not EstaTabela.Prepared then EstaTabela.Prepare;
+      EstaTabela.ParamByName('CD_OLDPRODUTO').AsInteger := CD_OLDPRODUTO;
+      EstaTabela.ParamByName('CD_OLDGRADE').AsInteger   := CD_OLDGRADE;
+      EstaTabela.ExecSQL;
+
+      // Verifica se ainda há Grades...
+      LabelAviso('Verificando a existência de grades no produto');
+      EstaTabela.Active := false;
+      EstaTabela.SQL.Clear;
+      EstaTabela.SQL.Add('Select count(*) Q from GRADES      ');
+      EstaTabela.SQL.Add('where                              ');
+      EstaTabela.SQL.Add('  CD_PRODUTO = :CD_OLDPRODUTO      ');
+      if not EstaTabela.Prepared then EstaTabela.Prepare;
+      EstaTabela.ParamByName('CD_OLDPRODUTO').AsInteger := CD_OLDPRODUTO;
+      EstaTabela.Active := true;
+      AindaTemGrades := EstaTabela.FieldByName('Q').AsInteger > 0;
+      EstaTabela.Active := false;
+
+      if not AindaTemGrades then
+        PodeApagarProduto := MensagemDeConfirmacao('Não á mais GRADES para o PRODUTO:'+ PL+
+                                      lbCodProduto.Caption+' - '+lbNomeDoProduto.Caption+'.'+ PL+
+                                      'Deseja remover este PRODUTO?', 'ATENÇÃO!', mbNo) = mrYes;
+
+      if PodeApagarProduto then
+      begin
+        // Direciona as Expedições...
+        LabelAviso('Direcionando Expedições');
+        EstaTabela.Active := false;
+        EstaTabela.SQL.Clear;
+        EstaTabela.SQL.Add('Update EXPEDICAO_ITEMS             ');
+        EstaTabela.SQL.Add('  set CD_PRODUTO = :CD_NEWPRODUTO  ');
+        EstaTabela.SQL.Add('where                              ');
+        EstaTabela.SQL.Add('  CD_PRODUTO = :CD_OLDPRODUTO      ');
+        if not EstaTabela.Prepared then EstaTabela.Prepare;
+        EstaTabela.ParamByName('CD_NEWPRODUTO').AsInteger := CD_NEWPRODUTO;
+        EstaTabela.ParamByName('CD_OLDPRODUTO').AsInteger := CD_OLDPRODUTO;
+        EstaTabela.ExecSQL;
+
+        // Direciona os Preços Promocionais...
+        LabelAviso('Direcionando Preços Promocionais');
+        EstaTabela.Active := false;
+        EstaTabela.SQL.Clear;
+        EstaTabela.SQL.Add('Update PRECOSPROMOCIONAIS          ');
+        EstaTabela.SQL.Add('  set CD_PRODUTO = :CD_NEWPRODUTO  ');
+        EstaTabela.SQL.Add('where                              ');
+        EstaTabela.SQL.Add('  CD_PRODUTO = :CD_OLDPRODUTO      ');
+        if not EstaTabela.Prepared then EstaTabela.Prepare;
+        EstaTabela.ParamByName('CD_NEWPRODUTO').AsInteger := CD_NEWPRODUTO;
+        EstaTabela.ParamByName('CD_OLDPRODUTO').AsInteger := CD_OLDPRODUTO;
+        EstaTabela.ExecSQL;
+
+        // Direciona os Números de Série...
+        LabelAviso('Direcionando Num. Série');
+        EstaTabela.Active := false;
+        EstaTabela.SQL.Clear;
+        EstaTabela.SQL.Add('Update NUMSERIE                    ');
+        EstaTabela.SQL.Add('  set CD_PRODUTO = :CD_NEWPRODUTO  ');
+        EstaTabela.SQL.Add('where                              ');
+        EstaTabela.SQL.Add('  CD_PRODUTO = :CD_OLDPRODUTO      ');
+        if not EstaTabela.Prepared then EstaTabela.Prepare;
+        EstaTabela.ParamByName('CD_NEWPRODUTO').AsInteger := CD_NEWPRODUTO;
+        EstaTabela.ParamByName('CD_OLDPRODUTO').AsInteger := CD_OLDPRODUTO;
+        EstaTabela.ExecSQL;
+
+        // Direciona as Movimentações de Estoque...
+        LabelAviso('Direcionando Movimentações de Estoque');
+        EstaTabela.Active := false;
+        EstaTabela.SQL.Clear;
+        EstaTabela.SQL.Add('Update MOVESTOQUE                  ');
+        EstaTabela.SQL.Add('  set CD_PRODUTO = :CD_NEWPRODUTO  ');
+        EstaTabela.SQL.Add('where                              ');
+        EstaTabela.SQL.Add('  CD_PRODUTO = :CD_OLDPRODUTO      ');
+        if not EstaTabela.Prepared then EstaTabela.Prepare;
+        EstaTabela.ParamByName('CD_NEWPRODUTO').AsInteger := CD_NEWPRODUTO;
+        EstaTabela.ParamByName('CD_OLDPRODUTO').AsInteger := CD_OLDPRODUTO;
+        EstaTabela.ExecSQL;
+
+        // Direciona os Pedidos de Compra...
+        LabelAviso('Direcionando Pedidos de Compra');
+        EstaTabela.Active := false;
+        EstaTabela.SQL.Clear;
+        EstaTabela.SQL.Add('Update PEDIDOSDECOMPRA_ITEMS       ');
+        EstaTabela.SQL.Add('  set CD_PRODUTO = :CD_NEWPRODUTO  ');
+        EstaTabela.SQL.Add('where                              ');
+        EstaTabela.SQL.Add('  CD_PRODUTO = :CD_OLDPRODUTO      ');
+        if not EstaTabela.Prepared then EstaTabela.Prepare;
+        EstaTabela.ParamByName('CD_NEWPRODUTO').AsInteger := CD_NEWPRODUTO;
+        EstaTabela.ParamByName('CD_OLDPRODUTO').AsInteger := CD_OLDPRODUTO;
+        EstaTabela.ExecSQL;
+
+        // Direciona Reservas...
+        LabelAviso('Direcionando Reservas');
+        EstaTabela.Active := false;
+        EstaTabela.SQL.Clear;
+        EstaTabela.SQL.Add('Update RESERVAS                    ');
+        EstaTabela.SQL.Add('  set CD_PRODUTO = :CD_NEWPRODUTO  ');
+        EstaTabela.SQL.Add('where                              ');
+        EstaTabela.SQL.Add('  CD_PRODUTO = :CD_OLDPRODUTO      ');
+        if not EstaTabela.Prepared then EstaTabela.Prepare;
+        EstaTabela.ParamByName('CD_NEWPRODUTO').AsInteger := CD_NEWPRODUTO;
+        EstaTabela.ParamByName('CD_OLDPRODUTO').AsInteger := CD_OLDPRODUTO;
+        EstaTabela.ExecSQL;
+
+        // Deleta o Antigo Produto...
+        LabelAviso('Excluindo o antigo Produto');
+        EstaTabela.Active := false;
+        EstaTabela.SQL.Clear;
+        EstaTabela.SQL.Add('delete from PRODUTOS               ');
+        EstaTabela.SQL.Add('where                              ');
+        EstaTabela.SQL.Add('  CD_PRODUTO = :CD_OLDPRODUTO      ');
+        if not EstaTabela.Prepared then EstaTabela.Prepare;
+        EstaTabela.ParamByName('CD_OLDPRODUTO').AsInteger := CD_OLDPRODUTO;
+        EstaTabela.ExecSQL;
+
+        EstaTabela.Active := false;
+        EstaTabela.SQL.Clear;
+        EstaTabela.SQL.Add('delete from REFPRODUTOS            ');
+        EstaTabela.SQL.Add('where                              ');
+        EstaTabela.SQL.Add('  CD_PRODUTO = :CD_OLDPRODUTO      ');
+        if not EstaTabela.Prepared then EstaTabela.Prepare;
+        EstaTabela.ParamByName('CD_OLDPRODUTO').AsInteger := CD_OLDPRODUTO;
+        EstaTabela.ExecSQL;
+
+        EstaTabela.Active := false;
+        EstaTabela.SQL.Clear;
+        EstaTabela.SQL.Add('delete from PRODFORNEC             ');
+        EstaTabela.SQL.Add('where                              ');
+        EstaTabela.SQL.Add('  CD_PRODUTO = :CD_OLDPRODUTO      ');
+        if not EstaTabela.Prepared then EstaTabela.Prepare;
+        EstaTabela.ParamByName('CD_OLDPRODUTO').AsInteger := CD_OLDPRODUTO;
+        EstaTabela.ExecSQL;
+      end;
+
+      EstaTabela.IB_Transaction.Commit;
+
+      MensagemDeInformacao('Ok');
+      Close;
+    except
+      EstaTabela.IB_Transaction.Rollback;
+      MensagemDeErro('Não foi possível transformar esta GRADE em um PRODUTO');
+    end;
+  finally
+    fDB.FechaTT(EstaTabela);
+    EstaTabela.Free;
+    EstaTransacao.Free;
+    fDB.FechaTT(CM.IBTabela);
+    Screen.Cursor := crDefault;
+    CM.FechaAviso;
+  end;
+end;
+
+end.

@@ -1,0 +1,989 @@
+//ok
+unit UConsultaListaNotas;
+
+interface
+
+uses
+  Windows, Messages, SysUtils, Variants, Classes, Graphics, Controls, Forms,
+  Dialogs, UDataMod, IB_Components, IBODataset, DB, Grids, Wwdbigrd, Wwdbgrid,
+  DUtilit,  StdCtrls, Buttons, ExtCtrls, Mask, ComCtrls, UComp, Gradpan,
+  JvExControls, JvLabel, JvExMask, JvToolEdit, JvGradient, UComum, MessageFunctions,
+  ACBrNFe, ACBrUtil, pcnConversao, UConstVar;
+const
+  EstaChave = '\ConsultaListaNotas';
+
+// Pagina
+  pgFechadas   = 0;
+  pgAbertas    = 1;
+
+// Tipo Filtro
+  tfDataEntrada = 0;
+  tfFornecedor  = 1;
+  tfTudo        = 2;
+
+  FiltroDataEntrada = ' and DT_ENTRADA >= :DE and DT_ENTRADA <= :ATE ';
+  FiltroFornecedor  = ' and ENTRADA.CD_FORNECEDOR =  :CD_FORNECEDOR ';
+  FiltroTudo        = ' and (1 = 1) ';
+
+// DescCampos : Array[1..24] of string = ('Cod. Nota', 'Tipo Nota', 'CFOP', 'ICMS Base', 'ICMS Valor', 'ICMS Base Subst', 'ICMS Valor Subst', 'Nota Fechada', 'Última Alteração', 'Fornecedor (Razão Social)', 'Fornecedor (Nome Fantasia)', 'CNPJ', 'Nº Documento', 'Emissão', 'Entrada', 'Obs', 'Valor Total Prod.', 'Valor Frete', 'Outras Despesas', 'Valor Seguro', 'Valor IPI', 'Valor da Nota', 'Desconto', 'Data Cadastro');
+
+type
+  TRegCampos = record
+    FieldFormat : String;
+    FieldName   : String;
+    Caption     : String;
+  end;
+
+  VetCampos = array of TRegCampos;
+
+  TfEntradasDeNotas = class(TForm)
+    IBNotasFechadas: TIBOQuery;
+    TrNotasFechadas: TIBOTransaction;
+    DataSource1: TDataSource;
+    Panel1: TPanel;
+    Panel2: TPanel;
+    Panel3: TPanel;
+    Panel4: TPanel;
+    Panel5: TPanel;
+    Label4: TLabel;
+    Label6: TLabel;
+    btOk: TBitBtn;
+    Notebook1: TNotebook;
+    GroupBox2: TGroupBox;
+    Label1: TLabel;
+    Label2: TLabel;
+    CBDateEdit1: TCheckBox;
+    CBDateEdit2: TCheckBox;
+    RadioGroup1: TRadioGroup;
+    GroupBox1: TGroupBox;
+    btPesquisaFornec: TSpeedButton;
+    EditCdFornecedor: TEdit;
+    EditNmFornecedor: TEdit;
+    Panel6: TPanel;
+    Bevel1: TBevel;
+    GroupBoxLocaliza: TGroupBox;
+    EditLocaliza: TEdit;
+    IBNotasFechadasNM_FORNECEDOR: TStringField;
+    IBNotasFechadasNOMEFANTASIA: TStringField;
+    IBNotasFechadasCNPJ: TStringField;
+    IBNotasFechadasNUM_DOCUMENTO: TIntegerField;
+    IBNotasFechadasDT_EMISSAO: TDateField;
+    IBNotasFechadasDT_ENTRADA: TDateField;
+    IBNotasFechadasOBS: TStringField;
+    IBNotasFechadasVR_TOTAL_PROD: TBCDField;
+    IBNotasFechadasVALOR_FRETE: TBCDField;
+    IBNotasFechadasOUTRAS_DESPESAS: TBCDField;
+    IBNotasFechadasVALOR_SEGURO: TBCDField;
+    IBNotasFechadasVALOR_IPI: TBCDField;
+    IBNotasFechadasVALOR_TOTAL_NOTA: TBCDField;
+    IBNotasFechadasDESCONTO_TOTAL: TBCDField;
+    IBNotasFechadasDT_CADASTRO: TDateTimeField;
+    bt_Visualiza: TBitBtn;
+    IBNotasFechadasCD_NOTA: TIntegerField;
+    bt_Cancela: TBitBtn;
+    bt_Ok: TBitBtn;
+    PageControl1: TPageControl;
+    TabSheetFechadas: TTabSheet;
+    wwDBGrid1: TwwDBGrid;
+    TabSheetAbertas: TTabSheet;
+    wwDBGrid2: TwwDBGrid;
+    IBNotasAbertas: TIBOQuery;
+    StringField1: TStringField;
+    StringField2: TStringField;
+    StringField3: TStringField;
+    IntegerField1: TIntegerField;
+    DateField1: TDateField;
+    DateField2: TDateField;
+    StringField4: TStringField;
+    BCDField1: TBCDField;
+    BCDField2: TBCDField;
+    BCDField3: TBCDField;
+    BCDField4: TBCDField;
+    BCDField5: TBCDField;
+    BCDField6: TBCDField;
+    BCDField7: TBCDField;
+    DateTimeField1: TDateTimeField;
+    IntegerField2: TIntegerField;
+    TrNotasAbertas: TIBOTransaction;
+    DataSource2: TDataSource;
+    bt_Incluir: TBitBtn;
+    bt_Excluir: TBitBtn;
+    bt_Alterar: TBitBtn;
+    lbQuantNotas: TJvLabel;
+    lbValorTotalNotas: TJvLabel;
+    DateEdit1: TJvDateEdit;
+    DateEdit2: TJvDateEdit;
+    IBNotasFechadasCD_FORNECEDOR: TIntegerField;
+    IBNotasAbertasCD_FORNECEDOR: TIntegerField;
+    PanelNovaNota: TPanel;
+    btIncluirzao: TBitBtn;
+    JvGradient1: TJvGradient;
+    btIncluirzaoXML: TBitBtn;
+    bt_IncluirXML: TBitBtn;
+    OpenDialog1: TOpenDialog;
+    ACBrNFe1: TACBrNFe;
+    btnTipoXML: TSpeedButton;
+    procedure FormCreate(Sender: TObject);
+    procedure btOkClick(Sender: TObject);
+    procedure Bt_SairClick(Sender: TObject);
+    procedure CBDateEdit1Click(Sender: TObject);
+    procedure FormClose(Sender: TObject; var Action: TCloseAction);
+    procedure FormKeyDown(Sender: TObject; var Key: Word; Shift: TShiftState);
+    procedure DateEdit2KeyPress(Sender: TObject; var Key: Char);
+    procedure wwDBGrid1CalcCellColors(Sender: TObject; Field: TField;
+      State: TGridDrawState; Highlight: Boolean; AFont: TFont;
+      ABrush: TBrush);
+    procedure wwDBGrid2CalcCellColors(Sender: TObject; Field: TField;
+      State: TGridDrawState; Highlight: Boolean; AFont: TFont;
+      ABrush: TBrush);
+    procedure RadioGroup1Click(Sender: TObject);
+    procedure btPesquisaFornecClick(Sender: TObject);
+    procedure EditCdFornecedorChange(Sender: TObject);
+    procedure EditCdFornecedorKeyDown(Sender: TObject; var Key: Word; Shift: TShiftState);
+    procedure FormShow(Sender: TObject);
+    procedure EditLocalizaChange(Sender: TObject);
+    procedure EditNmFornecedorChange(Sender: TObject);
+    procedure bt_VisualizaClick(Sender: TObject);
+    procedure bt_OkClick(Sender: TObject);
+    procedure bt_CancelaClick(Sender: TObject);
+    procedure wwDBGrid1DblClick(Sender: TObject);
+    procedure PageControl1Change(Sender: TObject);
+    procedure wwDBGrid1TitleButtonClick(Sender: TObject; AFieldName: String);
+    procedure wwDBGrid2TitleButtonClick(Sender: TObject; AFieldName: String);
+    procedure DateEdit1AcceptDate(Sender: TObject; var ADate: TDateTime; var Action: Boolean);
+    procedure DateEdit2AcceptDate(Sender: TObject; var ADate: TDateTime; var Action: Boolean);
+    procedure bt_IncluirClick(Sender: TObject);
+    procedure bt_AlterarClick(Sender: TObject);
+    procedure DataSource1DataChange(Sender: TObject; Field: TField);
+    procedure wwDBGrid2DblClick(Sender: TObject);
+    procedure bt_ExcluirClick(Sender: TObject);
+    procedure EditCdFornecedorKeyPress(Sender: TObject; var Key: Char);
+    procedure DateEdit1KeyDown(Sender: TObject; var Key: Word;
+      Shift: TShiftState);
+    procedure bt_IncluirXMLClick(Sender: TObject);
+    procedure btnTipoXMLClick(Sender: TObject);
+  private
+    PodePesquisar    : boolean;
+    PaginaAtiva      : word;
+    CamposFechadas   : VetCampos;
+    CamposAbertas    : VetCampos;
+    TipoFiltro : word;
+    CampoLocalizacao: String;
+    NCampoOrdenadoFechadas : word;
+    NCampoOrdenadoAbertas  : word;
+    SelectFechadas  : String;
+    SelectAbertas   : String;
+    ChaveDoRegistro : String;
+    EstaTabela      : TIBOQuery;
+    EsteGrid        : TwwDBGrid;
+    TotalValor, Quantidade: Currency;
+    FiltroAtivo     : String;
+    CD_NOTA         : Integer;
+    procedure Calcula;
+    procedure DefineSelects;
+    procedure IncluiCampo(icPagina: word; icFieldName, icCaption: string;  icFieldFormat:String='');
+    procedure ManipulaGrid(key: word; Shift: TShiftState);
+  public
+    PosicaoDoOk     : Integer;
+    nXML            : Integer;
+    ArquivoXML      : string;
+    TipoNota  : TTipoNota;
+  end;
+
+var
+  fEntradasDeNotas: TfEntradasDeNotas;
+
+implementation
+
+uses UConsultaNotas, UNovaEntradaNotas, UItemsEntradaNotas,
+     UModPesquisa, UModUsuarios, DBFunctions, UBuscaXML;
+
+{$R *.dfm}
+
+procedure TfEntradasDeNotas.FormCreate(Sender: TObject);
+var
+  i : integer;
+  DataTemp : String;
+  Agora : TDateTime;
+begin
+  RegChaveForms := 'SOFTWARE\FOCUS\FORMS';
+  RegProduto.Foto := TBitmap.Create;
+
+  ChaveDoRegistro := RegChaveForms+EstaChave;
+  Agora := CM.NowDoServidor;
+
+  CM.InicializaGrid(TeclaTaPressionada(vk_Shift), self, wwDBGrid1);
+  CM.InicializaGrid(TeclaTaPressionada(vk_Shift), self, wwDBGrid2);
+
+  PodePesquisar := false;
+  DefineSelects;
+  PosicaoDoOk := 545;
+  NCampoOrdenadoFechadas := LeIntegerDoRegistro(ChaveDoRegistro, 'CampoOrdenadoFechadas', 3);
+  NCampoOrdenadoAbertas  := LeIntegerDoRegistro(ChaveDoRegistro, 'CampoOrdenadoAbertas', 3);
+
+  if (NCampoOrdenadoFechadas < 1) or (NCampoOrdenadoFechadas > Length(CamposFechadas)) then NCampoOrdenadoFechadas := 3;
+  if (NCampoOrdenadoAbertas < 1) or (NCampoOrdenadoAbertas > Length(CamposAbertas)) then NCampoOrdenadoAbertas := 3;
+
+  GroupBoxLocaliza.Caption := 'Localiza '+CamposFechadas[NCampoOrdenadoFechadas].Caption;
+  PageControl1.TabIndex := 0;
+
+  CBDateEdit1.Checked := LeBooleanDoRegistro(ChaveDoRegistro, 'Hoje_De', true);
+  CBDateEdit2.Checked := LeBooleanDoRegistro(ChaveDoRegistro, 'Hoje_Ate', true);
+
+  if CBDateEdit1.Checked then DataTemp := DateToStr(Agora)
+                         else DataTemp := LeStringDoRegistro(ChaveDoRegistro, 'DataDe', DateToStr(Agora));
+  if not DataValida(DataTemp) then DataTemp := DateToStr(Agora);
+  try DateEdit1.Date := StrToDate(DataTemp); except end;
+
+  if CBDateEdit2.Checked then DataTemp := DateToStr(Agora)
+                         else DataTemp := LeStringDoRegistro(ChaveDoRegistro, 'DataAte', DateToStr(Agora));
+  if not DataValida(DataTemp) then DataTemp := DateToStr(Agora);
+  try DateEdit2.Date := StrToDate(DataTemp); except end;
+end;
+
+procedure TfEntradasDeNotas.btnTipoXMLClick(Sender: TObject);
+begin
+  if not TeclaTaPressionada(VK_CONTROL) then
+    Exit;
+  if btnTipoXML.Caption = 'C' then
+  begin
+    TipoNota := tpnMeia;
+    btnTipoXML.Caption := 'M';
+  end
+  else
+  begin
+    TipoNota := tpnCheia;
+    btnTipoXML.Caption := 'C';
+  end;
+end;
+
+procedure TfEntradasDeNotas.btOkClick(Sender: TObject);
+var
+  SelectAtivo : String;
+  CampoOrdenadoAtivo : Integer;
+begin
+  if not PodePesquisar then Exit;
+
+  try
+    AbreAviso('Carregando Registros');
+    Screen.Cursor := crHourGlass;
+    EstaTabela.DisableControls;
+    case PaginaAtiva of
+      pgFechadas  : begin
+                      CampoOrdenadoAtivo := NCampoOrdenadoFechadas;
+                      SelectAtivo := SelectFechadas;
+                    end;
+      pgAbertas   : begin
+                      CampoOrdenadoAtivo := NCampoOrdenadoAbertas;
+                      SelectAtivo := SelectAbertas;
+                    end;
+    end;
+
+    EstaTabela.Active := false;
+    EstaTabela.SQL.Clear;
+    case TipoFiltro of
+      tfDataEntrada: begin
+        FiltroAtivo := FiltroDataEntrada;
+        EstaTabela.SQL.Add(SelectAtivo + FiltroAtivo +' order by ' + IntToStr(CampoOrdenadoAtivo));
+        if not EstaTabela.Prepared then EstaTabela.Prepare;
+        EstaTabela.ParamByName('DE').AsDateTime := DataHoraInicial(DateEdit1.Date);
+        EstaTabela.ParamByName('ATE').AsDateTime := DataHoraFinal(DateEdit2.Date);
+      end;
+      tfFornecedor:
+      begin
+        FiltroAtivo := FiltroFornecedor;
+        EstaTabela.SQL.Add(SelectAtivo + FiltroAtivo +' order by ' + IntToStr(CampoOrdenadoAtivo));
+        if not EstaTabela.Prepared then EstaTabela.Prepare;
+        EstaTabela.ParamByName('CD_FORNECEDOR').AsString := EditCdFornecedor.Text;
+      end;
+      tfTudo:
+      begin
+        FiltroAtivo := FiltroTudo;
+        EstaTabela.SQL.Add(SelectAtivo + FiltroAtivo +' order by ' + IntToStr(CampoOrdenadoAtivo));
+      end;
+    end;
+    fDB.SalvaSQL(EstaTabela.SQL);
+    if not EstaTabela.Prepared then EstaTabela.Prepare;
+    try EstaTabela.Active := true; except end;
+    Calcula;
+  finally
+    PanelNovaNota.Visible := IBNotasAbertas.IsEmpty; 
+    EstaTabela.EnableControls;
+    FechaAviso;
+    Screen.Cursor := crDefault;
+  end;
+end;
+
+procedure TfEntradasDeNotas.Bt_SairClick(Sender: TObject);
+begin
+  Close;
+end;
+
+procedure TfEntradasDeNotas.CBDateEdit1Click(Sender: TObject);
+var
+  Agora : TDateTime;
+begin
+  Agora := CM.NowDoServidor;
+  if TCheckBox(Sender as TControl).Checked then
+  begin
+    if Sender = CBDateEdit1 then DateEdit1.Date := Agora
+    else
+      if Sender = CBDateEdit2 then DateEdit2.Date := Agora;
+  end;
+end;
+
+procedure TfEntradasDeNotas.FormClose(Sender: TObject; var Action: TCloseAction);
+begin
+  RegProduto.Foto.Free;
+  wwDBGrid1.SaveToIniFile;
+  wwDBGrid2.SaveToIniFile;
+
+  SalvaStringNoRegistro(ChaveDoRegistro,  'DataDe', DateEdit1.Text);
+  SalvaStringNoRegistro(ChaveDoRegistro,  'DataAte', DateEdit2.Text);
+  SalvaBooleanNoRegistro(ChaveDoRegistro, 'Hoje_De', CBDateEdit1.Checked);
+  SalvaBooleanNoRegistro(ChaveDoRegistro, 'Hoje_Ate', CBDateEdit2.Checked);
+  SalvaStringNoRegistro(ChaveDoRegistro,  'CdFornecedor', EditCdFornecedor.Text);
+
+  SalvaIntegerNoRegistro(ChaveDoRegistro, 'CampoOrdenadoFechadas', NCampoOrdenadoFechadas);
+  SalvaIntegerNoRegistro(ChaveDoRegistro, 'CampoOrdenadoAbertas',  NCampoOrdenadoAbertas);
+
+  fDB.FechaTT(IBNotasAbertas);
+  fDB.FechaTT(IBNotasFechadas);
+end;
+
+procedure TfEntradasDeNotas.Calcula;
+var
+  NotaFechada : String[1];
+begin
+  case PaginaAtiva of
+    pgFechadas : NotaFechada := 'V';
+    pgAbertas  : NotaFechada := 'F';
+  end;
+
+  with DtM do
+  begin
+    IBTabela.Active := false;
+    IBTabela.SQL.Clear;
+    IBTabela.SQL.Add('select first 1');
+    IBTabela.SQL.Add('(select sum(VALOR_TOTAL_NOTA)');
+    IBTabela.SQL.Add('from ENTRADA where NOTA_FECHADA = '+QuotedStr(NotaFechada)+' '+FiltroAtivo+') As VALORTOTALNOTAS,');
+    IBTabela.SQL.Add('(select count(*)');
+    IBTabela.SQL.Add('from ENTRADA where NOTA_FECHADA = '+QuotedStr(NotaFechada)+' '+FiltroAtivo+') As QUANTNOTAS');
+    IBTabela.SQL.Add('');
+    IBTabela.SQL.Add('from ENTRADA');
+    IBTabela.SQL.Add('where 1 = 1');
+    IBTabela.SQL.Add(FiltroAtivo);
+    fDB.SalvaSQL(IBTabela.SQL);
+    if not IBTabela.Prepared then IBTabela.Prepare;
+    case TipoFiltro of
+      tfDataEntrada : begin
+                   IBTabela.ParamByName('DE').AsDateTime := DataHoraInicial(DateEdit1.Date);
+                   IBTabela.ParamByName('ATE').AsDateTime := DataHoraFinal(DateEdit2.Date);
+                 end;
+      tfFornecedor: begin
+                   IBTabela.ParamByName('CD_FORNECEDOR').AsString := EditCdFornecedor.Text;
+                 end;
+    end;
+    IBTabela.Active := true;
+    lbQuantNotas.Caption      := IBTabela.FieldByname('QUANTNOTAS').AsString;
+    lbValorTotalNotas.Caption := FormatCurr('R$ ,0.00;R$ -,0.00', IBTabela.FieldByname('VALORTOTALNOTAS').AsCurrency);
+    IBTabela.Active := false;
+    fDB.FechaTT(IBTabela);
+  end;
+end;
+
+procedure TfEntradasDeNotas.FormKeyDown(Sender: TObject; var Key: Word; Shift: TShiftState);
+begin
+  case key of
+    vk_Escape: if (Shift = []) then bt_Cancela.Click;
+    vk_F2    : if (Shift = []) and (Bt_Incluir.Enabled) then Bt_Incluir.Click;
+    vk_F4    : if (Shift = []) and (Bt_Excluir.Enabled) then Bt_Excluir.Click;
+    vk_F5    : if (Shift = []) and (Bt_Alterar.Enabled) then Bt_Alterar.Click;
+    vk_F9    : if (Shift = []) then bt_Visualiza.Click;
+    VK_F12   : if (Shift = []) and (bt_IncluirXML.Enabled) then bt_IncluirXML.Click;
+  end;
+end;
+
+procedure TfEntradasDeNotas.DateEdit2KeyPress(Sender: TObject; var Key: Char);
+begin
+  if not (key in SetSoNumeros) then key := #0;
+  if key = #13 then
+  begin
+    btOk.Click;
+    if Sender = DateEdit1 then DateEdit2.SetFocus;
+    if Sender = DateEdit2 then EsteGrid.SetFocus;
+  end;
+end;
+
+procedure TfEntradasDeNotas.wwDBGrid1CalcCellColors(Sender: TObject;
+  Field: TField; State: TGridDrawState; Highlight: Boolean; AFont: TFont;
+  ABrush: TBrush);
+begin
+  if Highlight then AFont.Color := clWhite;
+end;
+
+procedure TfEntradasDeNotas.wwDBGrid2CalcCellColors(Sender: TObject;
+  Field: TField; State: TGridDrawState; Highlight: Boolean; AFont: TFont;
+  ABrush: TBrush);
+begin
+  if Highlight then AFont.Color := clWhite;
+end;
+
+procedure TfEntradasDeNotas.RadioGroup1Click(Sender: TObject);
+begin
+  Notebook1.PageIndex := RadioGroup1.ItemIndex;
+  TipoFiltro := RadioGroup1.ItemIndex;
+  btOk.Click;
+  try
+    case TipoFiltro of
+      tfDataEntrada : DateEdit1.SetFocus;
+      tfFornecedor  : EditCdFornecedor.SetFocus;
+      tfTudo        : EsteGrid.SetFocus;
+    end;
+  except
+  end;
+end;
+
+procedure TfEntradasDeNotas.btPesquisaFornecClick(Sender: TObject);
+begin
+  ItemEsc := mPesq.Pesquisa(pqFornecedores, [mdAlteracao], EditCdFornecedor, EditNmFornecedor.Text);
+end;
+
+procedure TfEntradasDeNotas.EditCdFornecedorChange(Sender: TObject);
+begin
+  CM.BuscaRegistro(EditCdFornecedor, EditNmFornecedor, 'FORNECEDORES', 'CD_FORNECEDOR', 'NM_FORNECEDOR');
+end;
+
+procedure TfEntradasDeNotas.ManipulaGrid(key:word; Shift: TShiftState);
+begin
+  if Shift = [] then
+  begin
+    case key of
+      vk_Down   : begin
+                    EstaTabela.Next;
+                    EsteGrid.SetFocus;
+                  end;
+      vk_Up     : begin
+                    EstaTabela.Prior;
+                    EsteGrid.SetFocus;
+                  end;
+    end;
+  end;
+end;
+
+procedure TfEntradasDeNotas.EditCdFornecedorKeyDown(Sender: TObject; var Key: Word; Shift: TShiftState);
+begin
+  ManipulaGrid(key, Shift);
+  case key of
+    vk_Down   : if (Shift = [ssCtrl]) or (Shift = [ssAlt]) then btPesquisaFornec.Click;
+    vk_F3     : if Shift = [] then btPesquisaFornec.Click;
+    vk_Return : if Shift = [] then btOk.Click;
+  end;
+end;
+
+procedure TfEntradasDeNotas.FormShow(Sender: TObject);
+begin
+  EditCdFornecedor.Text := LeStringDoRegistro(ChaveDoRegistro, 'CdFornecedor', '');
+  RadioGroup1.ItemIndex := 2;
+  RadioGroup1.OnClick(self);
+  PageControl1.OnChange(self);
+  PodePesquisar := true;
+  btOk.Click;
+  if Bt_Ok.Left = PosicaoDoOk then Bt_Ok.Caption := 'Ok'
+                              else Bt_Ok.Caption := 'Fechar';
+
+  DetonaXPManifest(self);
+  FechaAviso;
+  Screen.Cursor := crDefault;
+  if btnTipoXML.Caption = 'C' then TipoNota := tpnCheia
+                              else TipoNota := tpnMeia;
+end;
+
+procedure TfEntradasDeNotas.EditLocalizaChange(Sender: TObject);
+begin
+  try
+    case PaginaAtiva of
+      pgFechadas : try EstaTabela.Locate(CamposFechadas[NCampoOrdenadoFechadas-1].FieldName, EditLocaliza.Text, [loCaseInsensitive, loPartialKey]); except end;
+      pgAbertas  : try EstaTabela.Locate(CamposAbertas[NCampoOrdenadoAbertas-1].FieldName, EditLocaliza.Text, [loCaseInsensitive, loPartialKey]);  except end;
+    end;
+  except
+  end;
+end;
+
+procedure TfEntradasDeNotas.EditNmFornecedorChange(Sender: TObject);
+begin
+  btOk.Click;
+end;
+
+procedure TfEntradasDeNotas.bt_VisualizaClick(Sender: TObject);
+begin
+  Application.CreateForm(TfEntradaNotaConsulta, fEntradaNotaConsulta);
+  fEntradaNotaConsulta.MostraEstaNota := EstaTabela.FieldByName('CD_NOTA').AsInteger;
+  fEntradaNotaConsulta.ShowModal;
+  FreeAndNil(fEntradaNotaConsulta);
+end;
+
+procedure TfEntradasDeNotas.bt_OkClick(Sender: TObject);
+begin
+  ItemEsc.CodInt := IBNotasFechadas.FieldByName('CD_NOTA').AsInteger;
+  ItemEsc.CodExt := IBNotasFechadas.FieldByName('CD_NOTA').AsString;
+  self.Close;
+end;
+
+procedure TfEntradasDeNotas.bt_CancelaClick(Sender: TObject);
+begin
+  ItemEsc.CodInt := CodigoVazio;
+  ItemEsc.CodExt := '';
+  self.Close;
+end;
+
+procedure TfEntradasDeNotas.wwDBGrid1DblClick(Sender: TObject);
+begin
+  if Bt_Ok.Left = PosicaoDoOk then
+    bt_Ok.Click
+  else
+    bt_Visualiza.Click;
+end;
+
+procedure TfEntradasDeNotas.PageControl1Change(Sender: TObject);
+begin
+  if PageControl1.ActivePage = TabSheetFechadas then  // Fechadas
+  begin
+    PaginaAtiva := pgFechadas;
+    EstaTabela := IBNotasFechadas;
+    EsteGrid := wwDBGrid1;
+    IBNotasAbertas.Active := false;
+    Bt_Alterar.Enabled := false;
+    Bt_Visualiza.Enabled := true;
+    bt_Alterar.Visible := false;
+    with bt_Visualiza do
+    begin
+      Visible := True;
+      Left := 236;
+      Top := 7;
+    end;
+    btOk.Click;
+    Caption := 'Entrada de Notas (FECHADAS)';
+    GroupBoxLocaliza.Caption := 'Localiza '+CamposFechadas[NCampoOrdenadoFechadas-1].Caption;
+  end
+  else begin
+  if PageControl1.ActivePage = TabSheetAbertas then  // Abertas
+  begin
+    PaginaAtiva := pgAbertas;
+    EstaTabela := IBNotasAbertas;
+    EsteGrid := wwDBGrid2;
+    IBNotasFechadas.Active := false;
+    Bt_Alterar.Enabled := true;
+    Bt_Visualiza.Enabled := false;
+    bt_Alterar.Visible := True;
+    bt_Visualiza.Visible := False;
+    btOk.Click;
+    Caption := 'Entrada de Notas (ABERTAS)';
+    GroupBoxLocaliza.Caption := 'Localiza '+CamposAbertas[NCampoOrdenadoAbertas-1].Caption;
+  end; end;
+  EstaTabela.Filtered := false;
+  EstaTabela.Filter := '';
+end;
+
+procedure TfEntradasDeNotas.IncluiCampo(icPagina: word; icFieldName, icCaption: string;  icFieldFormat:String='');
+var
+  Vetor : VetCampos;
+begin
+  case icPagina of
+    pgAbertas   : Vetor := CamposAbertas;
+    pgFechadas  : Vetor := CamposFechadas;
+  end;
+
+  setLength(Vetor, length(Vetor)+1);
+  Vetor[length(Vetor)-1].Caption   := icCaption;
+  Vetor[length(Vetor)-1].FieldName := icFieldName;
+  if icFieldFormat = '' then Vetor[length(Vetor)-1].FieldFormat := icFieldName
+                        else Vetor[length(Vetor)-1].FieldFormat := icFieldFormat;
+
+  // Tira o ponto do nome
+  if ExistePalavra(Vetor[length(Vetor)-1].FieldName, '.', false) then
+    Vetor[length(Vetor)-1].FieldName := PegaAPartirDoUltimo(Vetor[length(Vetor)-1].FieldName, '.');
+
+  case icPagina of
+    pgAbertas   : CamposAbertas  := Vetor;
+    pgFechadas  : CamposFechadas := Vetor;
+  end;
+end;
+
+procedure TfEntradasDeNotas.DefineSelects;
+var
+  i : integer;
+begin
+// *** Define o SELECT FECHADAS ***
+
+  setLength(CamposFechadas, 0);
+  IncluiCampo(pgFechadas, 'ENTRADA.CD_NOTA',         'Cod. Nota');
+  IncluiCampo(pgFechadas, 'ENTRADA.TIPO_NOTA',       'Tipo Nota');
+  IncluiCampo(pgFechadas, 'ENTRADA.CFOP',            'CFOP');
+  IncluiCampo(pgFechadas, 'ENTRADA.ICMS_BASE',       'ICMS Base');
+  IncluiCampo(pgFechadas, 'ENTRADA.ICMS_VALOR',      'ICMS Valor');
+  IncluiCampo(pgFechadas, 'ENTRADA.ICMS_BASESUBST',  'ICMS Base Subst');
+  IncluiCampo(pgFechadas, 'ENTRADA.ICMS_VALORSUBST', 'ICMS Valor Subst');
+  IncluiCampo(pgFechadas, 'ENTRADA.NOTA_FECHADA',    'Nota Fechada');
+  IncluiCampo(pgFechadas, 'ENTRADA.ULTIMAALTERACAO', 'Última Alteração');
+  IncluiCampo(pgFechadas, 'ENTRADA.CD_FORNECEDOR',   'Cod. Fornecedor');
+  IncluiCampo(pgFechadas, 'FO.NM_FORNECEDOR',   'Fornecedor (Razão Social)');
+  IncluiCampo(pgFechadas, 'FO.NOMEFANTASIA',    'Fornecedor (Nome Fantasia)');
+  IncluiCampo(pgFechadas, 'ENTRADA.CNPJ',            'CNPJ');
+  IncluiCampo(pgFechadas, 'ENTRADA.NUM_DOCUMENTO',   'Nº Documento');
+  IncluiCampo(pgFechadas, 'ENTRADA.DT_EMISSAO',      'Emissão');
+  IncluiCampo(pgFechadas, 'ENTRADA.DT_ENTRADA',      'Entrada');
+  IncluiCampo(pgFechadas, 'ENTRADA.OBS',             'Obs');
+  IncluiCampo(pgFechadas, 'ENTRADA.VR_TOTAL_PROD',   'Valor Total Prod.');
+  IncluiCampo(pgFechadas, 'ENTRADA.VALOR_FRETE',     'Valor Frete');
+  IncluiCampo(pgFechadas, 'ENTRADA.OUTRAS_DESPESAS', 'Valor Outras Despesas');
+  IncluiCampo(pgFechadas, 'ENTRADA.VALOR_SEGURO',    'Valor Seguro');
+  IncluiCampo(pgFechadas, 'ENTRADA.VALOR_IPI',       'Valor IPI');
+  IncluiCampo(pgFechadas, 'ENTRADA.VALOR_TOTAL_NOTA','Valor da Nota');
+  IncluiCampo(pgFechadas, 'ENTRADA.DESCONTO_TOTAL',  'Desconto');
+  IncluiCampo(pgFechadas, 'ENTRADA.DT_CADASTRO',     'Data Cadastro');
+
+  CamposAbertas := CamposFechadas;
+  SelectFechadas := 'SELECT '+CamposFechadas[0].FieldFormat+' as '+CamposFechadas[0].FieldName;
+  for i := 1 to Length(CamposFechadas)-1 do
+    SelectFechadas := SelectFechadas + ', '+ CamposFechadas[i].FieldFormat+' as '+CamposFechadas[i].FieldName;
+
+  SelectFechadas := SelectFechadas +' '+' from ENTRADA '+
+                 ' left outer join FORNECEDORES FO on FO.CD_FORNECEDOR = ENTRADA.CD_FORNECEDOR ';
+
+  SelectAbertas  := SelectFechadas +' where NOTA_FECHADA = ''F'''+' ';
+  SelectFechadas := SelectFechadas +' where NOTA_FECHADA = ''V'''+' ';
+// *** SELECT definido ***
+end;
+
+procedure TfEntradasDeNotas.wwDBGrid1TitleButtonClick(Sender: TObject; AFieldName: String);
+var
+  i : Integer;
+begin
+  AbreAviso('Ordenando registros...', 0, 0, 0, 0);
+  try
+    EstaTabela.DisableControls;
+
+    for i := 0 to Length(CamposFechadas)-1 do
+    begin
+      if AFieldName = CamposFechadas[i].FieldName then
+      begin
+        NCampoOrdenadoFechadas := i+1;
+        break;
+      end;
+    end;
+
+    wwDBGrid1.SaveToIniFile;
+    btOk.Click;
+    wwDBGrid1.LoadFromIniFile;
+    GroupBoxLocaliza.Caption := 'Localiza '+CamposFechadas[NCampoOrdenadoFechadas-1].Caption;
+  finally
+    FechaAviso;
+    EstaTabela.EnableControls;
+  end;
+end;
+
+procedure TfEntradasDeNotas.wwDBGrid2TitleButtonClick(Sender: TObject; AFieldName: String);
+var
+  i : Integer;
+begin
+  AbreAviso('Ordenando registros...', 0, 0, 0, 0);
+  try
+    EstaTabela.DisableControls;
+
+    for i := 0 to Length(CamposAbertas)-1 do
+    begin
+      if AFieldName = CamposAbertas[i].FieldName then
+      begin
+        NCampoOrdenadoAbertas := i+1;
+        break;
+      end;
+    end;
+
+    wwDBGrid2.SaveToIniFile;
+    btOk.Click;
+    wwDBGrid2.LoadFromIniFile;
+    GroupBoxLocaliza.Caption := 'Localiza '+CamposAbertas[NCampoOrdenadoAbertas-1].Caption;
+  finally
+    FechaAviso;
+    EstaTabela.EnableControls;
+  end;
+end;
+
+procedure TfEntradasDeNotas.DateEdit1AcceptDate(Sender: TObject; var ADate: TDateTime; var Action: Boolean);
+begin
+  if ADate <> CM.NowDoServidor then CBDateEdit1.Checked := false;
+  DateEdit1.Date := ADate;
+  btOk.Click;
+end;
+
+procedure TfEntradasDeNotas.DateEdit2AcceptDate(Sender: TObject; var ADate: TDateTime; var Action: Boolean);
+begin
+  if ADate <> CM.NowDoServidor then CBDateEdit2.Checked := false;
+  DateEdit2.Date := ADate;
+  btOk.Click;
+end;
+
+procedure TfEntradasDeNotas.bt_IncluirClick(Sender: TObject);
+begin
+  bt_Incluir.Enabled := false;
+  btIncluirzao.Enabled := false;
+  bt_IncluirXML.Enabled := False;
+  btIncluirzaoXML.Enabled := False;
+  AbreAviso('Preparando Nova Entrada MANUAL');
+  try
+    Application.CreateForm(TfNovaEntradaNota, fNovaEntradaNota);
+    fNovaEntradaNota.Modo := mdInclusao;
+    fNovaEntradaNota.ShowModal;
+    try
+      if fNovaEntradaNota.BotaoPressionado <> bpOk then Exit
+      else begin
+        with DtM, fNovaEntradaNota do
+        begin
+          try
+            AbreAviso('Preparando Nova Entrada');
+            self.CD_NOTA := fDB.GetValorDoGenerator(DtM.IBDatabaseServer, 'GEN_ENTRADA');
+            fNovaEntradaNota.CD_NOTA := self.CD_NOTA;
+            if not IBTabela.IB_Transaction.InTransaction then IBTabela.IB_Transaction.StartTransaction;
+            IBTabela.Active := false;
+            IBTabela.SQL.Clear;
+            IBTabela.SQL.Add('insert into ENTRADA');
+            IBTabela.SQL.Add('( CD_NOTA,  TIPO_NOTA,  CD_FORNECEDOR,  CNPJ,  NM_FORNECEDOR,  NUM_DOCUMENTO, ');
+            IBTabela.SQL.Add(' CFOP,  DT_EMISSAO,  DT_ENTRADA,  OBS,  ICMS_BASE,  ICMS_VALOR, ');
+            IBTabela.SQL.Add(' ICMS_BASESUBST,  ICMS_VALORSUBST,  VR_TOTAL_PROD,  VALOR_FRETE, ');
+            IBTabela.SQL.Add(' VALOR_SEGURO,  OUTRAS_DESPESAS,  VALOR_IPI,  VALOR_TOTAL_NOTA, ');
+            IBTabela.SQL.Add(' DESCONTO_TOTAL,  NOTA_FECHADA)');
+            IBTabela.SQL.Add('Values');
+            IBTabela.SQL.Add('(:CD_NOTA, :TIPO_NOTA, :CD_FORNECEDOR, :CNPJ, :NM_FORNECEDOR, :NUM_DOCUMENTO, ');
+            IBTabela.SQL.Add(':CFOP, :DT_EMISSAO, :DT_ENTRADA, :OBS, :ICMS_BASE, :ICMS_VALOR, ');
+            IBTabela.SQL.Add(':ICMS_BASESUBST, :ICMS_VALORSUBST, :VR_TOTAL_PROD, :VALOR_FRETE, ');
+            IBTabela.SQL.Add(':VALOR_SEGURO, :OUTRAS_DESPESAS, :VALOR_IPI, :VALOR_TOTAL_NOTA, ');
+            IBTabela.SQL.Add(':DESCONTO_TOTAL, :NOTA_FECHADA)');
+
+            if not IBTabela.Prepared then IBTabela.Prepare;
+            fNovaEntradaNota.DefineParametros;
+
+            IBTabela.ExecSQL;
+            IBTabela.IB_Transaction.Commit;
+          except
+            on E: exception do begin
+              FechaAviso;
+              LogDeErros(E.Message);
+              IBTabela.IB_Transaction.RollBack;
+              MensagemDeErro('Não foi possível abrir uma nova Nota');
+              exit;
+            end;
+          end;
+        end;
+      end;
+    finally
+      FreeAndNil(fNovaEntradaNota);
+    end;
+
+    Application.CreateForm(TfEntradaNotasItems, fEntradaNotasItems);
+    fEntradaNotasItems.CD_NOTA := CD_NOTA;
+    fEntradaNotasItems.Modo    := mdInclusao;
+    fEntradaNotasItems.ShowModal;
+    FreeAndNil(fEntradaNotasItems);
+
+  finally
+    FechaAviso;
+    Screen.Cursor := crDefault;
+    bt_Incluir.Enabled := true;
+    btIncluirzao.Enabled := true;
+    bt_IncluirXML.Enabled := True;
+    btIncluirzaoXML.Enabled := True;
+    EstaTabela.Refresh;
+    Calcula;
+  end;
+end;
+
+procedure TfEntradasDeNotas.bt_IncluirXMLClick(Sender: TObject);
+var
+  Passou: Boolean;
+  n: Integer;
+begin
+  Passou := False;
+  Application.CreateForm(TfBuscaXML, fBuscaXML);
+  fBuscaXML.ShowModal;
+  FreeAndNil(fBuscaXML);
+
+  if ArquivoXML = '' then
+  begin
+    MensagemDeAtencao('Selecione um arquivo XML válido!','Atenção');
+    Exit;
+  end
+  else
+  begin
+    ACBrNFe1.NotasFiscais.Clear;
+    ACBrNFe1.NotasFiscais.Add;
+    try
+      ACBrNFe1.NotasFiscais.LoadFromFile(ArquivoXML);
+    except
+      MensagemDeErro('Arquivo XML NFe Inválido!');
+      exit;
+    end;
+
+    bt_Incluir.Enabled := false;
+    btIncluirzao.Enabled := false;
+    bt_IncluirXML.Enabled := False;
+    btIncluirzaoXML.Enabled := False;
+    AbreAviso('Preparando Nova Entrada POR XML');
+
+    try
+      for n:=0 to ACBrNFe1.NotasFiscais.Count-1 do
+      begin
+        with ACBrNFe1.NotasFiscais.Items[n].NFe do
+        begin
+          if (procNFe.cStat <> 0) then
+          begin
+            if (TpAmbToStr(procNFe.tpAmb) <> '1') or (procNFe.cStat <> 100) then
+              if MensagemDeConfirmacao('Nota com conteúdo não fiscal, deseja prosseguir?','Atenção',mbNo) = mrNo then
+                Exit;
+
+            nXML := n;
+            Passou := True;
+            Application.CreateForm(TfNovaEntradaNota, fNovaEntradaNota);
+            fNovaEntradaNota.Modo := mdInclusaoXML;
+            fNovaEntradaNota.ShowModal;
+            
+            try
+              if fNovaEntradaNota.BotaoPressionado <> bpOk then Exit
+              else begin
+                with DtM, fNovaEntradaNota do
+                begin
+                  try
+                    AbreAviso('Preparando Nova Entrada');
+                    self.CD_NOTA := fDB.GetValorDoGenerator(DtM.IBDatabaseServer, 'GEN_ENTRADA');
+                    fNovaEntradaNota.CD_NOTA := self.CD_NOTA;
+                    if not IBTabela.IB_Transaction.InTransaction then IBTabela.IB_Transaction.StartTransaction;
+                    IBTabela.Active := false;
+                    IBTabela.SQL.Clear;
+                    IBTabela.SQL.Add('insert into ENTRADA');
+                    IBTabela.SQL.Add('( CD_NOTA,  TIPO_NOTA,  CD_FORNECEDOR,  CNPJ,  NM_FORNECEDOR,  NUM_DOCUMENTO, ');
+                    IBTabela.SQL.Add(' CFOP,  DT_EMISSAO,  DT_ENTRADA,  OBS,  ICMS_BASE,  ICMS_VALOR, ');
+                    IBTabela.SQL.Add(' ICMS_BASESUBST,  ICMS_VALORSUBST,  VR_TOTAL_PROD,  VALOR_FRETE, ');
+                    IBTabela.SQL.Add(' VALOR_SEGURO,  OUTRAS_DESPESAS,  VALOR_IPI,  VALOR_TOTAL_NOTA, ');
+                    IBTabela.SQL.Add(' DESCONTO_TOTAL,  NOTA_FECHADA, NAT_OPERACAO, SERIE, MODELO, ');
+                    IBTabela.SQL.Add(' CHAVE_NFE, VALOR_II, VALOR_PIS, VALOR_COFINS, ACRES_DESC_PORC_ESPECIAL)');
+                    IBTabela.SQL.Add('Values');
+                    IBTabela.SQL.Add('(:CD_NOTA, :TIPO_NOTA, :CD_FORNECEDOR, :CNPJ, :NM_FORNECEDOR, :NUM_DOCUMENTO, ');
+                    IBTabela.SQL.Add(':CFOP, :DT_EMISSAO, :DT_ENTRADA, :OBS, :ICMS_BASE, :ICMS_VALOR, ');
+                    IBTabela.SQL.Add(':ICMS_BASESUBST, :ICMS_VALORSUBST, :VR_TOTAL_PROD, :VALOR_FRETE, ');
+                    IBTabela.SQL.Add(':VALOR_SEGURO, :OUTRAS_DESPESAS, :VALOR_IPI, :VALOR_TOTAL_NOTA, ');
+                    IBTabela.SQL.Add(':DESCONTO_TOTAL, :NOTA_FECHADA, :NAT_OPERACAO, :SERIE, :MODELO, ');
+                    IBTabela.SQL.Add(':CHAVE_NFE, :VALOR_II, :VALOR_PIS, :VALOR_COFINS, :ACRES_DESC_PORC_ESPECIAL)');
+
+                    if not IBTabela.Prepared then IBTabela.Prepare;
+                    fNovaEntradaNota.DefineParametros;
+
+                    IBTabela.ExecSQL;
+                    IBTabela.IB_Transaction.Commit;
+                  except
+                    on E: exception do begin
+                      FechaAviso;
+                      LogDeErros(E.Message);
+                      IBTabela.IB_Transaction.RollBack;
+                      MensagemDeErro('Não foi possível abrir uma nova Nota');
+                      exit;
+                    end;
+                  end;
+                end;
+              end;
+            finally
+              FreeAndNil(fNovaEntradaNota);
+              btOk.Click;
+            end;
+
+            Application.CreateForm(TfEntradaNotasItems, fEntradaNotasItems);
+            fEntradaNotasItems.CD_NOTA := CD_NOTA;
+            fEntradaNotasItems.Modo := mdInclusaoXML;
+            fEntradaNotasItems.ShowModal;
+            FreeAndNil(fEntradaNotasItems);
+          end;
+        end;
+      end;
+      if not Passou then
+      begin
+        FechaAviso;
+        MensagemDeErro('Arquivo XML NFe Inválido!');
+      end;
+    finally
+      FechaAviso;
+      Screen.Cursor := crDefault;
+      bt_Incluir.Enabled := true;
+      btIncluirzao.Enabled := true;
+      bt_IncluirXML.Enabled := True;
+      btIncluirzaoXML.Enabled := True;
+      EstaTabela.Refresh;
+      Calcula;
+    end;
+  end;
+end;
+
+procedure TfEntradasDeNotas.bt_AlterarClick(Sender: TObject);
+begin
+  if IBNotasAbertas.IsEmpty then Exit;
+  Application.CreateForm(TfEntradaNotasItems, fEntradaNotasItems);
+  fEntradaNotasItems.CD_NOTA := CD_NOTA;
+  fEntradaNotasItems.Modo := mdAlteracao;
+  fEntradaNotasItems.ShowModal;
+  FreeAndNil(fEntradaNotasItems);
+  EstaTabela.Refresh;
+  Calcula;
+end;
+
+procedure TfEntradasDeNotas.DataSource1DataChange(Sender: TObject; Field: TField);
+begin
+  CD_NOTA := EstaTabela.FieldByName('CD_NOTA').AsInteger;
+end;
+
+procedure TfEntradasDeNotas.wwDBGrid2DblClick(Sender: TObject);
+begin
+  bt_Alterar.Click;
+end;
+
+procedure TfEntradasDeNotas.bt_ExcluirClick(Sender: TObject);
+var
+  EsteRegistro : String;
+begin
+  if not mUsers.TemAcessoPermissao(sgEntradaDeNotas, 'E') then Exit;
+
+  if MensagemDeConfirmacao('Deseja realmente excluir esta Nota?') =  mrYes then
+  begin
+    EsteRegistro := 'Data: '+EstaTabela.FieldByname('DT_ENTRADA').AsString+', Fornecedor: '+EstaTabela.FieldByname('CD_FORNECEDOR').AsString+', Valor: '+EstaTabela.FieldByname('VALOR_TOTAL_NOTA').AsString;
+    if not DtM.IBTabela.IB_Transaction.InTransaction then DtM.IBTabela.IB_Transaction.StartTransaction;
+    try
+      DtM.IBTabela.Active := false;
+      DtM.IBTabela.SQL.Clear;
+      DtM.IBTabela.SQL.Add('Delete from ENTRADA where CD_NOTA = :CD_NOTA');
+      if not DtM.IBTabela.Prepared then DtM.IBTabela.Prepare;
+      DtM.IBTabela.ParamByName('CD_NOTA').AsInteger := EstaTabela.FieldByName('CD_NOTA').AsInteger;
+      DtM.IBTabela.ExecSQL;
+      DtM.IBTabela.IB_Transaction.Commit;
+      CM.IncluiEmExclusoes(exEntradaDeNotas, EsteRegistro);
+      EstaTabela.Refresh;
+      Calcula;
+    except
+      on E: exception do begin
+        LogDeErros(E.Message);
+        DtM.IBTabela.IB_Transaction.Rollback;
+        MensagemDeErro('Não foi possível excluir esta Nota');
+      end;
+    end;
+    btOk.Click;
+  end;
+end;
+
+procedure TfEntradasDeNotas.EditCdFornecedorKeyPress(Sender: TObject; var Key: Char);
+begin
+  if not (key in SetNumeros) then
+    ItemEsc := mPesq.PesquisaDireto(key, pqFornecedores, [mdInclusao, mdAlteracao], EditCdFornecedor);
+end;
+
+procedure TfEntradasDeNotas.DateEdit1KeyDown(Sender: TObject; var Key: Word; Shift: TShiftState);
+begin
+  ManipulaGrid(key, Shift);
+end;
+
+end.

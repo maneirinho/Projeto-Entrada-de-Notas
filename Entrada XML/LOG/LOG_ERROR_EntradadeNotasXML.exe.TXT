@@ -1,0 +1,281 @@
+===============================================================================
+15/09/2011  - 16:14:27
+Janela: fEntradasDeNotas
+Componente: 
+FieldName: NAT_OPERACAO not found
+
+===============================================================================
+15/09/2011  - 16:14:56
+Janela: fEntradasDeNotas
+Componente: 
+FieldName: NAT_OPERACAO not found
+
+===============================================================================
+15/09/2011  - 16:16:34
+Janela: fEntradasDeNotas
+Componente: 
+FieldName: NAT_OPERACAO not found
+
+===============================================================================
+15/09/2011  - 16:21:15
+Janela: fEntradasDeNotas
+Componente: 
+FieldName: CHAVE_NFE not found
+
+===============================================================================
+16/09/2011  - 13:40:59
+Janela: fEntradaNotasItems
+Componente: Button1
+SELECT COD_BARRAS
+FROM PRODUTOS
+WHERE (NM_PRODUTO LIKE '%%') AND INATIVO = 'F'
+
+
+===============================================================================
+23/09/2011  - 16:46:49
+Janela: fEntradasDeNotas
+Componente: bt_Excluir
+ISC ERROR CODE:335544345
+
+ISC ERROR MESSAGE:
+lock conflict on no wait transaction
+deadlock
+update conflicts with concurrent update
+concurrent transaction number is 178828
+At trigger 'ENTRADA_AD' line: 7, col: 5
+
+
+===============================================================================
+23/09/2011  - 16:46:53
+Janela: fEntradasDeNotas
+Componente: bt_Excluir
+ISC ERROR CODE:335544345
+
+ISC ERROR MESSAGE:
+lock conflict on no wait transaction
+deadlock
+update conflicts with concurrent update
+concurrent transaction number is 178828
+At trigger 'ENTRADA_AD' line: 7, col: 5
+
+
+===============================================================================
+23/09/2011  - 16:47:07
+Janela: fEntradasDeNotas
+Componente: bt_Excluir
+ISC ERROR CODE:335544345
+
+ISC ERROR MESSAGE:
+lock conflict on no wait transaction
+deadlock
+update conflicts with concurrent update
+concurrent transaction number is 178828
+At trigger 'ENTRADA_AD' line: 7, col: 5
+
+
+===============================================================================
+26/09/2011  - 13:42:45
+Janela: fDadosDoProduto
+Componente: Bt_Proximo
+FieldName: IPI not found
+
+===============================================================================
+27/09/2011  - 16:15:43
+Janela: fAguarde
+Componente: fAguarde
+FieldName: IPI not found
+
+===============================================================================
+27/09/2011  - 16:18:26
+Janela: fAguarde
+Componente: fAguarde
+FieldName: IPI not found
+
+===============================================================================
+27/09/2011  - 16:21:14
+Janela: fAguarde
+Componente: fAguarde
+FieldName: IPI not found
+
+===============================================================================
+27/09/2011  - 16:34:47
+Janela: fAguarde
+Componente: fAguarde
+FieldName: IPI not found
+
+===============================================================================
+27/09/2011  - 16:35:48
+Janela: fAguarde
+Componente: fAguarde
+FieldName: IPI not found
+
+===============================================================================
+27/09/2011  - 16:38:18
+Janela: fAguarde
+Componente: fAguarde
+FieldName: IPI not found
+
+===============================================================================
+27/09/2011  - 16:40:56
+Janela: fAguarde
+Componente: fAguarde
+FieldName: IPI not found
+
+===============================================================================
+30/09/2011  - 16:44:15
+Janela: fEntradasDeNotas
+Componente: 
+ISC ERROR CODE:335544569
+
+ISC ERROR MESSAGE:
+Dynamic SQL Error
+SQL error code = -206
+Column unknown
+ACRES_DESC_PORC_ESPECIAL
+At line 7, column 48
+
+
+===============================================================================
+30/09/2011  - 16:44:53
+Janela: fEntradasDeNotas
+Componente: 
+ISC ERROR CODE:335544569
+
+ISC ERROR MESSAGE:
+Dynamic SQL Error
+SQL error code = -206
+Column unknown
+ACRES_DESC_PORC_ESPECIAL
+At line 7, column 48
+
+
+===============================================================================
+30/09/2011  - 16:45:24
+Janela: fEntradasDeNotas
+Componente: 
+ISC ERROR CODE:335544569
+
+ISC ERROR MESSAGE:
+Dynamic SQL Error
+SQL error code = -206
+Column unknown
+ACRES_DESC_PORC_ESPECIAL
+At line 7, column 48
+
+
+===============================================================================
+30/09/2011  - 16:54:28
+Janela: fDadosDoProduto
+Componente: Bt_Proximo
+FieldName: IPI not found
+
+===============================================================================
+05/10/2011  - 14:27:07
+Janela: fEntradasDeNotas
+Componente: wwDBGrid2
+FieldName: TRIBUTOSDESPESAS_VALOR not found
+
+===============================================================================
+05/10/2011  - 14:29:53
+Janela: fAguarde
+Componente: fAguarde
+FieldName: TRIBUTOSDESPESAS_VALOR not found
+
+===============================================================================
+05/10/2011  - 15:44:01
+Janela: fAguarde
+Componente: fAguarde
+insert into ENTRADA_ITEM
+(CD_NOTA, CD_ITEM, CD_PRODUTO, COD_PROD_FORNEC, 
+ QUANTIDADE, VALORUNITARIO, ICMS_PORC, IPI_PORC, 
+ CUSTO_UNITARIO, CX_COD_BARRA_CAIXA, CX_VALORCAIXA, CX_UNDCONVERSAO ,
+ SEQUENCIAL, PRECOCUSTO, VALORTOTAL, UNDCONVERSAO, 
+ MARGEMLUCRO, PRECOVENDA, EAN, NOME_XML,
+ NOME_CADASTRADO, CLASSFISCAL, EXTIPI, CFOP, 
+ UNID_COM, CD_EAN_TRIB, UN_TRIB, QT_TRIB, 
+ VAL_UN_TRIB, FRETE_VAL, SEGURO_VAL, DESCONTO_VAL, 
+ OUTROS_VAL, INDTOT, XPEDIDO, NITEMPEDIDO, 
+ INFOADPROD, ORIGEM, ICMS_CST, ICMS_MODBC, 
+ PREDBCST, ICMS_BC_VAL, ICMS_VAL, ICMSST_MODBC, 
+ ICMSST_PMVA, ICMSST_PRED, ICMSST_BC_VAL, ICMSST_PORC, 
+ ICMSST_VAL , ICMSSTRET_BC_VAL, ICMSSTRET_VAL, ICMS_CRED_SN_PORC, 
+ ICMS_CRED_SN_VAL, IPI_CST, IPI_CLENQ, IPI_CNPJPROD, 
+ IPI_CSELO, IPI_QSELO, IPI_CENQ, IPI_BC_VAL, 
+ IPI_QUNID, IPI_VALUNID, IPI_VAL, II_BC_VAL, 
+ II_DESPADU_VAL, II_VAL, II_IOF_VAL, PIS_CST, 
+ PIS_BC_VAL, PIS_PORC, PIS_VAL, PIS_QUANT_BCPROD, 
+ PIS_ALIQPROD_VAL, PISST_BC_VAL, PISST_PORC, PISST_QUANT_BCPROD, 
+ PISST_ALIQPROD_VAL, PISST_VAL, COFINS_CST, COFINS_BC_VAL, 
+ COFINS_PORC, COFINS_VAL, COFINS_QUANT_BCPROD, COFINS_ALIQPROD_VAL, 
+ COFINSST_BC_VAL, COFINSST_PORC, COFINSST_QUANT_BCPROD, COFINSST_ALIQPROD_VAL, 
+ COFINSST_VAL, ISSQN_BC_VAL, ISSQN_ALIQ_VAL, ISSQN_VAL, 
+ ISSQN_CODMUN, ISSQN_CLISTSERV, FLAG, CD_GRUPO, 
+ MARGEM2, MARGEM3, MARGEM4, MARGEM5, 
+ PRECO2, PRECO3, PRECO4, PRECO5, 
+ CUSTOMEDIO, TIPOCUSTO, FRETECHEGADA, FRETESAIDA)
+Values
+(:CD_NOTA, :CD_ITEM,  :CD_PRODUTO, :COD_PROD_FORNEC, 
+ :QUANTIDADE, :VALORUNITARIO, :ICMS_PORC, :IPI_PORC, 
+ :CUSTO_UNITARIO, :CX_COD_BARRA_CAIXA, :CX_VALORCAIXA, :CX_UNDCONVERSAO, 
+ :SEQUENCIAL, :PRECOCUSTO, :VALORTOTAL, :UNDCONVERSAO, 
+ :MARGEMLUCRO, :PRECOVENDA, :EAN, :NOME_XML, 
+ :NOME_CADASTRADO, :CLASSFISCAL, :EXTIPI, :CFOP, 
+ :UNID_COM, :CD_EAN_TRIB, :UN_TRIB, :QT_TRIB, 
+ :VAL_UN_TRIB, :FRETE_VAL, :SEGURO_VAL, :DESCONTO_VAL, 
+ :OUTROS_VAL, :INDTOT, :XPEDIDO, :NITEMPEDIDO, 
+ :INFOADPROD, :ORIGEM, :ICMS_CST, :ICMS_MODBC, 
+ :PREDBCST, :ICMS_BC_VAL, :ICMS_VAL, :ICMSST_MODBC,
+  :ICMSST_PORC, :ICMSST_PMVA, :ICMSST_PRED, :ICMSST_BC_VAL, 
+  :ICMSST_VAL, :ICMSSTRET_BC_VAL, :ICMSSTRET_VAL, :ICMS_CRED_SN_PORC, 
+ :ICMS_CRED_SN_VAL, :IPI_CST, :IPI_CLENQ, :IPI_CNPJPROD, 
+ :IPI_CSELO, :IPI_QSELO, :IPI_CENQ, :IPI_BC_VAL, 
+ :IPI_QUNID, :IPI_VALUNID, :IPI_VAL, :II_BC_VAL, 
+ :II_DESPADU_VAL, :II_VAL, :II_IOF_VAL, :PIS_CST, 
+ :PIS_BC_VAL, :PIS_PORC, :PIS_VAL, :PIS_QUANT_BCPROD, 
+ :PIS_ALIQPROD_VAL, :PISST_BC_VAL, :PISST_PORC, :PISST_QUANT_BCPROD, 
+ :PISST_ALIQPROD_VAL, :PISST_VAL, :COFINS_CST, :COFINS_BC_VAL, 
+ :COFINS_PORC, :COFINS_VAL, :COFINS_QUANT_BCPROD,:COFINS_ALIQPROD_VAL, 
+ :COFINSST_BC_VAL, :COFINSST_PORC, :COFINSST_QUANT_BCPROD, :COFINSST_ALIQPROD_VAL, 
+ :COFINSST_VAL, :ISSQN_BC_VAL, :ISSQN_ALIQ_VAL, :ISSQN_VAL, 
+ :ISSQN_CODMUN, :ISSQN_CLISTSERV, :FLAG, :CD_GRUPO, 
+ :MARGEM2, :MARGEM3, :MARGEM4, :MARGEM5, 
+ :PRECO2, :PRECO3, :PRECO4, :PRECO5, 
+ :CUSTOMEDIO, :TIPOCUSTO, :FRETECHEGADA, :FRETESAIDA)
+
+
+===============================================================================
+06/10/2011  - 11:42:04
+Janela: fDadosDoProduto
+Componente: Bt_Proximo
+FieldName: IPI not found
+
+===============================================================================
+13/10/2011  - 16:11:19
+Janela: fDadosDoProduto
+Componente: Bt_Ok
+IBNFItems: Field 'DELETADO' not found
+
+===============================================================================
+13/10/2011  - 16:11:53
+Janela: fDadosDoProduto
+Componente: Bt_Ok
+IBNFItems: Field 'DELETADO' not found
+
+===============================================================================
+13/10/2011  - 16:13:35
+Janela: fDadosDoProduto
+Componente: Bt_Ok
+Cannot assign to TMemoField
+
+===============================================================================
+13/10/2011  - 16:18:10
+Janela: fDadosDoProduto
+Componente: Bt_Ok
+IBNFItems: Field 'IPI_CLENQ ' not found
+
+===============================================================================
+13/10/2011  - 16:19:05
+Janela: fDadosDoProduto
+Componente: Bt_Ok
+IBNFItems: Field 'PIS_ALIQPROD_VAL ' not found
+

@@ -1,0 +1,80 @@
+unit ULotesProduto;
+
+interface
+
+uses
+  Windows, Messages, SysUtils, Variants, Classes, Graphics, Controls, Forms,
+  Dialogs, DB, StdCtrls, Buttons, Grids, Wwdbigrd, Wwdbgrid, ComCtrls, ExtCtrls;
+
+type
+  TFLotesItems = class(TForm)
+    PanelLotesItems: TPanel;
+    lbNMProduto: TLabel;
+    Label4: TLabel;
+    Label1: TLabel;
+    lbQtdProduto: TLabel;
+    Panel1: TPanel;
+    GroupBox4: TGroupBox;
+    PageControl1: TPageControl;
+    TabFinanceiro: TTabSheet;
+    wwDBGrid1: TwwDBGrid;
+    Panel3: TPanel;
+    Bt_IncluirItem: TBitBtn;
+    Bt_ExcluirItem: TBitBtn;
+    Bt_Ok: TBitBtn;
+    DataSource1: TDataSource;
+    procedure FormCreate(Sender: TObject);
+    procedure FormShow(Sender: TObject);
+    procedure Bt_OkClick(Sender: TObject);
+    procedure FormClose(Sender: TObject; var Action: TCloseAction);
+  private
+    { Private declarations }
+  public
+    { Public declarations }
+  end;
+
+var
+  FLotesItems: TFLotesItems;
+
+implementation
+
+uses UDataMod, UDadosProduto, UComum, DUtilit;
+
+{$R *.dfm}
+
+procedure TFLotesItems.Bt_OkClick(Sender: TObject);
+begin
+  close;
+end;
+
+procedure TFLotesItems.FormClose(Sender: TObject; var Action: TCloseAction);
+begin
+  wwDBGrid1.SaveToIniFile;
+end;
+
+procedure TFLotesItems.FormCreate(Sender: TObject);
+begin
+  lbNMProduto.Caption   := fDadosDoProduto.lbNMProduto.Caption;
+  lbQtdProduto.Caption  := CurrToStr(fDadosDoProduto.edQuantidade.Value);
+  DataSource1.DataSet   := DtM.IBNFLotesItems;
+  CM.InicializaGrid(TeclaTaPressionada(vk_Shift), self, wwDBGrid1);
+end;
+
+procedure TFLotesItems.FormShow(Sender: TObject);
+begin
+  with DtM.IBNFLotesItems do
+  begin
+    Active := False;
+    SQL.Clear;
+    SQL.Add('SELECT *');
+    SQL.Add('from ENTRADA_ITEM_MEDICAMENTO');
+    SQL.Add('WHERE CD_NOTA = :CD_NOTA');
+    SQL.Add('  AND CD_PRODUTO = :CD_PRODUTO');
+    if not Prepared then Prepare;
+    ParamByName('CD_NOTA').AsInteger := DtM.IBNF.FieldByName('CD_NOTA').AsInteger;
+    ParamByName('CD_PRODUTO').AsInteger := DtM.IBNFItems.FieldByName('CD_PRODUTO').AsInteger;
+    Active := True;
+  end;
+end;
+
+end.

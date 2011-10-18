@@ -1,0 +1,280 @@
+unit UCadPrecosPromocionais;
+
+interface
+
+uses
+  Windows, Messages, SysUtils, Variants, Classes, Graphics, Controls, Forms,
+  Dialogs, UCadastroPadrao, DB, IBODataset, IB_Components, Gradpan, Mask,
+  DBCtrls, StdCtrls, Buttons, Grids, DBGrids, ExtCtrls, JvEdit, DBIboSuperCombo,
+  Wwdbspin, wwdbedit, JvExControls, JvSpeedButton,
+  JvExStdCtrls, JvDBControls, JvExMask, JvToolEdit, JvBaseEdits, JvLabel,
+  JvExExtCtrls, JvPanel, wwdbdatetimepicker, JvSpin,
+  JvDBSpinEdit, MessageFunctions;
+
+type
+  TfCadPrecosPromocionais = class(TfCadastroPadrao)
+    Label1: TLabel;
+    Label50: TLabel;
+    btPesquisaProduto: TSpeedButton;
+    EdNomeProduto: TEdit;
+    chInativo: TDBCheckBox;
+    DBEdit21: TDBEdit;
+    chPorPeriodo: TDBCheckBox;
+    GroupBoxPeriodo: TGroupBox;
+    lbPeriodoDe: TLabel;
+    lbPeriodoAte: TLabel;
+    chPorQuantidade: TDBCheckBox;
+    GroupBoxQuantidade: TGroupBox;
+    lbQuantDe: TLabel;
+    lbQuantAte: TLabel;
+    edQuantDe: TJvDBCalcEdit;
+    edQuantAte: TJvDBCalcEdit;
+    edPrecoVenda: TJvDBCalcEdit;
+    Label6: TLabel;
+    edPeriodoDe: TJvDBDateEdit;
+    edPeriodoAte: TJvDBDateEdit;
+    edCodProduto: TEdit;
+    GroupBox1: TGroupBox;
+    JvDBCalcEdit1: TJvDBSpinEdit;
+    procedure FormCreate(Sender: TObject);
+    procedure FormShow(Sender: TObject);
+    procedure edCodProdutoChange(Sender: TObject);
+    procedure edCodProdutoKeyDown(Sender: TObject; var Key: Word; Shift: TShiftState);
+    procedure edCodProdutoKeyPress(Sender: TObject; var Key: Char);
+    procedure btPesquisaProdutoClick(Sender: TObject);
+    procedure chPorPeriodoClick(Sender: TObject);
+    procedure DBEdit21Change(Sender: TObject);
+    procedure Bt_GravarClick(Sender: TObject);
+    procedure Bt_IncluirClick(Sender: TObject);
+  private
+    PodeOnChangergPessoa : boolean;
+    UltimoChange : TTime;
+    procedure HabilitaDesabilitaCampos;
+    procedure IniciaValores; override;
+    function  TemErroNaGravacao: boolean; override;
+    procedure FormataCampos;
+  public
+    FiltroCodProduto : Integer;
+  end;
+
+var
+  fCadPrecosPromocionais: TfCadPrecosPromocionais;
+
+implementation
+
+uses UComum, UComp, DUtilit, UModPesquisa, UDataMod,
+     UConstVar, DBFunctions;
+
+{$R *.dfm}
+
+procedure TfCadPrecosPromocionais.HabilitaDesabilitaCampos;
+begin
+//  if (IBCadastro.FieldByName('PORPERIODO').AsString = 'V') then
+  if chPorPeriodo.Checked then
+  begin
+    LigaComponente(self, GroupBoxPeriodo);
+    LigaComponente(self, lbPeriodoDe);
+    LigaComponente(self, lbPeriodoAte);
+    LigaComponente(self, edPeriodoDe);
+    LigaComponente(self, edPeriodoAte);
+  end
+  else begin
+    DesligaComponente(self, GroupBoxPeriodo);
+    DesligaComponente(self, lbPeriodoDe);
+    DesligaComponente(self, lbPeriodoAte);
+    DesligaComponente(self, edPeriodoDe);
+    DesligaComponente(self, edPeriodoAte);
+  end;
+
+  if chPorQuantidade.Checked then
+  begin
+    LigaComponente(self, GroupBoxQuantidade);
+    LigaComponente(self, lbQuantDe);
+    LigaComponente(self, lbQuantAte);
+    LigaComponente(self, edQuantDe);
+    LigaComponente(self, edQuantAte);
+  end
+  else begin
+    DesligaComponente(self, GroupBoxQuantidade);
+    DesligaComponente(self, lbQuantDe);
+    DesligaComponente(self, lbQuantAte);
+    DesligaComponente(self, edQuantDe);
+    DesligaComponente(self, edQuantAte);
+  end;
+end;
+
+procedure TfCadPrecosPromocionais.IniciaValores;
+begin
+  if IBCadastro.FieldByName('PORPERIODO').Value = null     then IBCadastro.FieldByName('PORPERIODO').AsString := 'F';
+  if IBCadastro.FieldByName('PORQUANTIDADE').Value = null  then IBCadastro.FieldByName('PORQUANTIDADE').AsString := 'F';
+  if IBCadastro.FieldByName('INATIVO').Value = null        then IBCadastro.FieldByName('INATIVO').AsString := 'F';
+  if IBCadastro.FieldByName('ORDEM').Value = null          then IBCadastro.FieldByName('ORDEM').AsInteger := 1;
+end;
+
+function TfCadPrecosPromocionais.TemErroNaGravacao: boolean;
+var
+  JaTem : boolean;
+begin
+  result := false;
+  if (not result) and (Vazio(EdNomeProduto.Text)) then
+  begin
+    MensagemDeAtencao('É necessário informar o PRODUTO');
+    result := true;
+    edCodProduto.SetFocus;
+    Exit;
+  end;
+
+  if (not result) and (chPorPeriodo.Checked) and (not DataValida(edPeriodoDe.Text)) then
+  begin
+    MensagemDeAtencao('Data Inválida no início do Período ');
+    result := true;
+    edPeriodoDe.SetFocus;
+    Exit;
+  end;
+
+  if (not result) and (chPorPeriodo.Checked) and (not DataValida(edPeriodoAte.Text)) then
+  begin
+    MensagemDeAtencao('Data Inválida no final do Período ');
+    result := true;
+    edPeriodoAte.SetFocus;
+    Exit;
+  end;
+
+  DeuErro := result;
+  Inherited TemErroNaGravacao;
+end;
+
+procedure TfCadPrecosPromocionais.FormCreate(Sender: TObject);
+begin
+  EstaChave    := '\CadPrecosPromocionais';
+  NomeDaTabela := 'PRECOSPROMOCIONAIS';
+  EstaTabela   := IBCadastro;
+  Select       := 'Select PRECOSPROMOCIONAIS.* from PRECOSPROMOCIONAIS ';
+  Campo.CodigoInt := 'CD_PROMOCAO';
+  Campo.CodigoStr := 'CD_PROMOCAO';
+  Campo.Descricao := 'NM_PRODUTO';
+  Filtro          := NomeDaTabela+'.'+Campo.CodigoInt+' > 0';
+  FiltroCodProduto:= 0;
+  CadObjeto       := 'Preço Promocional';
+//todo alterar cadastro padrao  EsteCadastro    := FcadPrecosPromocionais;
+
+  LimpaCamposOrdenados;
+  IncluiCampoOrdenado('CD_PROMOCAO', 'Código');
+  IncluiCampoOrdenado('NM_PRODUTO',  'Nome do Produto');
+
+  inherited;
+end;
+
+procedure TfCadPrecosPromocionais.FormShow(Sender: TObject);
+begin
+  edCodProduto.SetFocus;
+  if FiltroCodProduto > 0 then
+    Filtro := Filtro + ' and CD_PRODUTO = '+IntToStr(FiltroCodProduto);
+  inherited;
+end;
+
+procedure TfCadPrecosPromocionais.edCodProdutoChange(Sender: TObject);
+begin
+  if vazio(EdCodProduto.Text) then
+  begin
+    EdNomeProduto.Clear;
+    Exit;
+  end;
+
+  with DtM do
+  begin
+    IBTabela.Active := false;
+    IBTabela.SQL.Clear;
+    IBTabela.SQL.Add('Select NM_PRODUTO, CD_PRODUTO from PRODUTOS');
+    IBTabela.SQL.Add('where COD_BARRAS = :COD_BARRAS');
+    if not IBTabela.Prepared then IBTabela.Prepare;
+    IBTabela.ParamByName('COD_BARRAS').AsString := EdCodProduto.Text;
+    IBTabela.Active := true;
+    if not IBTabela.IsEmpty then
+    begin
+      EdNomeProduto.Text := IBTabela.FieldByName('NM_PRODUTO').AsString;
+      EdNomeProduto.Tag  := IBTabela.FieldByName('CD_PRODUTO').AsInteger;
+    end
+    else begin
+      EdNomeProduto.Clear;
+      EdNomeProduto.Tag := 0;
+    end;
+    fDB.FechaTT(IBTabela);
+  end;
+end;
+
+procedure TfCadPrecosPromocionais.edCodProdutoKeyDown(Sender: TObject; var Key: Word; Shift: TShiftState);
+begin
+  if (CM.F3OuAltDown(key, shift)) and (Modo in [mdAlteracao, mdInclusao]) then btPesquisaProduto.Click;
+end;
+
+procedure TfCadPrecosPromocionais.edCodProdutoKeyPress(Sender: TObject; var Key: Char);
+begin
+  ItemEsc.CodInt := CodigoVazio;
+  if (Modo in [mdAlteracao, mdInclusao]) then
+  begin
+    if not (key in SetNumeros) then
+      ItemEsc := mPesq.PesquisaDireto(key, pqProdutos, [mdInclusao, mdAlteracao], edCodProduto);
+    if ItemEsc.CodInt <> CodigoVazio then
+      IBCadastro.FieldByName('CD_PRODUTO').AsInteger := ItemEsc.CodInt;
+  end;
+end;
+
+procedure TfCadPrecosPromocionais.btPesquisaProdutoClick(Sender: TObject);
+begin
+  if (Modo in [mdAlteracao, mdInclusao]) then
+  begin
+    ItemEsc := mPesq.Pesquisa(pqProdutos, [mdInclusao, mdAlteracao], edCodProduto, EdNomeProduto.Text);
+    if ItemEsc.CodInt <> CodigoVazio then
+      IBCadastro.FieldByName('CD_PRODUTO').AsInteger := ItemEsc.CodInt;
+  end;
+end;
+
+procedure TfCadPrecosPromocionais.FormataCampos;
+begin
+  inherited;
+end;
+
+procedure TfCadPrecosPromocionais.chPorPeriodoClick(Sender: TObject);
+begin
+  HabilitaDesabilitaCampos;
+end;
+
+procedure TfCadPrecosPromocionais.DBEdit21Change(Sender: TObject);
+begin
+  ResultVetor := fDB.GetValoresDosCampos(DtM.IBDatabaseServer, 'PRODUTOS', ['COD_BARRAS', 'NM_PRODUTO'], ['', ''], 'CD_PRODUTO='+IBCadastro.FieldByName('CD_PRODUTO').AsString);
+  HabilitaDesabilitaCampos;
+  edCodProduto.Text  := ResultVetor[0];
+  EdNomeProduto.Text := ResultVetor[1];
+end;
+
+procedure TfCadPrecosPromocionais.Bt_GravarClick(Sender: TObject);
+var
+  Codigo : Integer;
+begin
+  if Modo = mdInclusao then
+  begin
+    Codigo := fDB.GetValorDoGenerator(DtM.IBDatabaseServer, 'GEN_PRECOSPROMOCIONAIS');
+    IBCadastro.FieldByName('CD_PROMOCAO').AsInteger := Codigo;
+  end;
+  IBCadastro.FieldByName('NM_PRODUTO').AsString := EdNomeProduto.Text;
+
+  inherited;
+end;
+
+procedure TfCadPrecosPromocionais.Bt_IncluirClick(Sender: TObject);
+begin
+  inherited;
+
+  if FiltroCodProduto > 0 then
+  begin
+    IBCadastro.FieldByName('CD_PRODUTO').AsInteger := FiltroCodProduto;
+    EdNomeProduto.Tag  := FiltroCodProduto;
+    ResultVetor := fDB.GetValoresDosCampos(DtM.IBDatabaseServer, 'PRODUTOS', ['COD_BARRAS', 'NM_PRODUTO'], ['', ''], 'CD_PRODUTO='+IntToStr(FiltroCodProduto));
+    edCodProduto.Text  := ResultVetor[0];
+    EdNomeProduto.Text := ResultVetor[1];
+  end;
+  edCodProduto.SetFocus;
+end;
+
+end.

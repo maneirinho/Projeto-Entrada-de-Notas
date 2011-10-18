@@ -1,0 +1,5 @@
+object mPesq: TmPesq
+  OldCreateOrder = False
+  Height = 103
+  Width = 153
+end

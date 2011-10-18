@@ -1,0 +1,393 @@
+unit UConsultaNotas;
+
+interface
+
+uses
+  Windows, Messages, SysUtils, Variants, Classes, Graphics, Controls, Forms,
+  Dialogs, StdCtrls, Mask, DBCtrls, ExtCtrls, Buttons, 
+  DUtilit, IBODataSet, UDataMod, Grids, Wwdbigrd, Wwdbgrid,
+  UComum, DB, IB_Components, JvExMask, JvToolEdit, JvBaseEdits,
+  JvDBControls;
+
+const
+  EstaChave = '\Notas';
+  NomeDaTabela = 'ENTRADA';
+  ChavePrimaria = 'CD_NOTA';
+  Select = 'Select * from ENTRADA where NOTA_FECHADA = '+'''V''';
+
+type
+  TfEntradaNotaConsulta = class(TForm)
+    Panel1: TPanel;
+    Panel2: TPanel;
+    GroupBox4: TGroupBox;
+    Bt_Sair: TBitBtn;
+    GroupBox5: TGroupBox;
+    DBRadioGroup1: TDBRadioGroup;
+    GroupBox1: TGroupBox;
+    Label1: TLabel;
+    Label2: TLabel;
+    DBEdit1: TDBEdit;
+    DBEdit2: TDBEdit;
+    DBEdit3: TDBEdit;
+    GroupBox2: TGroupBox;
+    Label4: TLabel;
+    Label5: TLabel;
+    GroupBox3: TGroupBox;
+    Label17: TLabel;
+    Label6: TLabel;
+    Label7: TLabel;
+    Label8: TLabel;
+    Label9: TLabel;
+    Label10: TLabel;
+    Label11: TLabel;
+    Label12: TLabel;
+    Label13: TLabel;
+    Label14: TLabel;
+    DBNavigator1: TDBNavigator;
+    Bt_Pesquisar: TBitBtn;
+    DataSource1: TDataSource;
+    GroupBox6: TGroupBox;
+    Label3: TLabel;
+    DBEdit4: TDBEdit;
+    DBEdit5: TDBEdit;
+    Label15: TLabel;
+    DataSource2: TDataSource;
+    Label16: TLabel;
+    GroupBox7: TGroupBox;
+    Label18: TLabel;
+    bt_Imprimir: TBitBtn;
+    RadioGroup1: TRadioGroup;
+    GroupBox9: TGroupBox;
+    Label57: TLabel;
+    ComboBoxFornecedor: TComboBox;
+    IBNotasFechadas: TIBOQuery;
+    TrNotasFechadas: TIBOTransaction;
+    DBEditPrecoVenda: TJvDBCalcEdit;
+    RxDBCalcEdit1: TJvDBCalcEdit;
+    RxDBCalcEdit2: TJvDBCalcEdit;
+    RxDBCalcEdit3: TJvDBCalcEdit;
+    RxDBCalcEdit4: TJvDBCalcEdit;
+    RxDBCalcEdit5: TJvDBCalcEdit;
+    RxDBCalcEdit6: TJvDBCalcEdit;
+    RxDBCalcEdit7: TJvDBCalcEdit;
+    RxDBCalcEdit8: TJvDBCalcEdit;
+    RxDBCalcEdit9: TJvDBCalcEdit;
+    RxDBCalcEdit10: TJvDBCalcEdit;
+    EditTotal: TJvCalcEdit;
+    DBDateEdit1: TJvDBDateEdit;
+    DBDateEdit2: TJvDBDateEdit;
+    wwDBGrid1: TwwDBGrid;
+    btGrade: TBitBtn;
+    btNumSerie: TBitBtn;
+    procedure Bt_SairClick(Sender: TObject);
+    procedure FormShow(Sender: TObject);
+    procedure FormKeyDown(Sender: TObject; var Key: Word; Shift: TShiftState);
+    procedure FormKeyPress(Sender: TObject; var Key: Char);
+    procedure FormClose(Sender: TObject; var Action: TCloseAction);
+    procedure FormCreate(Sender: TObject);
+    procedure FormPaint(Sender: TObject);
+    procedure DataSource1DataChange(Sender: TObject; Field: TField);
+    procedure Bt_PesquisarClick(Sender: TObject);
+    procedure bt_ImprimirClick(Sender: TObject);
+    procedure RadioGroup1Click(Sender: TObject);
+    procedure ComboBoxFornecedorChange(Sender: TObject);
+    procedure btGradeClick(Sender: TObject);
+    procedure btNumSerieClick(Sender: TObject);
+    procedure wwDBGrid1TitleButtonClick(Sender: TObject; AFieldName: String);
+  private
+    ChaveDoRegistro : String;
+    OrdenadoPor : Integer;
+    ItemsOrdenadoPor : String;
+    FiltroFornecedor : Integer;
+    Transacao   : TIBOTransaction;
+    procedure FiltraItemsDaNota;
+    procedure IniciaValores;
+//    procedure LocalizaFornecedor(lfCodigoDoFornecedor: Integer);
+    procedure AbreATabela;
+  public
+    ErroDeGravacao : boolean;
+    MostraEstaNota : Integer;
+  end;
+
+var
+  fEntradaNotaConsulta: TfEntradaNotaConsulta;
+  AbriuAgora : boolean;
+
+implementation
+
+uses UNFGrades, UEntradaNumSerie,
+     UConstVar, DBFunctions;
+
+{$R *.dfm}
+
+procedure TfEntradaNotaConsulta.FiltraItemsDaNota;
+begin
+  if not IBNotasFechadas.IsEmpty then
+  begin
+    DtM.IBNFItems.Active := false;
+    DtM.IBNFItems.SQL.Clear;
+    DtM.IBNFItems.SQL.Add('select N.*, P.NM_PRODUTO, P.COD_BARRAS from ENTRADA_ITEM N, PRODUTOS P');
+    DtM.IBNFItems.SQL.Add('where CD_NOTA = '+IBNotasFechadas.FieldByName('CD_NOTA').AsString);
+    DtM.IBNFItems.SQL.Add('and N.CD_PRODUTO = P.CD_PRODUTO');
+    DtM.IBNFItems.SQL.Add('order by '+ItemsOrdenadoPor);
+
+    if not DtM.IBNFItems.Prepared then DtM.IBNFItems.Prepare;
+    DtM.IBNFItems.Active := true;
+
+    DtM.IBTabela.Active := false;
+    DtM.IBTabela.SQL.Clear;
+    DtM.IBTabela.SQL.Add('Select Sum(VALORTOTAL) from ENTRADA_ITEM');
+    DtM.IBTabela.SQL.Add('where CD_NOTA = '+IBNotasFechadas.FieldByName('CD_NOTA').AsString);
+    if not DtM.IBTabela.Prepared then DtM.IBTabela.Prepare;
+    DtM.IBTabela.Active := true;
+    EditTotal.Value := DtM.IBTabela.FieldByName('SUM').AsCurrency;
+    fDB.FechaTT(DtM.IBTabela);
+  end
+  else begin
+    DtM.IBNFItems.Active := false;
+    DtM.IBNFItems.SQL.Clear;
+    DtM.IBNFItems.SQL.Add('select N.*, P.NM_PRODUTO, P.COD_BARRAS from ENTRADA_ITEM N, PRODUTOS P');
+    DtM.IBNFItems.SQL.Add('where CD_NOTA = -99999999999');
+    DtM.IBNFItems.SQL.Add('and N.CD_PRODUTO = P.CD_PRODUTO');
+    if not DtM.IBNFItems.Prepared then DtM.IBNFItems.Prepare;
+    DtM.IBNFItems.Active := true;
+    EditTotal.Value := 0;
+  end;
+end;
+
+procedure TfEntradaNotaConsulta.IniciaValores;
+begin
+  if IBNotasFechadas.FieldByName('TIPO_NOTA').Value = null then IBNotasFechadas.FieldByName('TIPO_NOTA').AsString := 'F';
+end;
+
+procedure TfEntradaNotaConsulta.Bt_SairClick(Sender: TObject);
+begin
+  Close;
+end;
+
+procedure TfEntradaNotaConsulta.FormShow(Sender: TObject);
+begin
+  try
+    DBRadioGroup1.SetFocus;
+  except
+  end;
+  CM.FechaAviso;
+  Screen.Cursor := crDefault;
+  AbreATabela;
+end;
+
+procedure TfEntradaNotaConsulta.FormKeyDown(Sender: TObject; var Key: Word; Shift: TShiftState);
+begin
+  case key of
+    vk_F3    : if (Shift = []) and (Bt_Pesquisar.Enabled) then Bt_Pesquisar.Click;
+    vk_F6    : if (Shift = []) and (btGrade.Enabled)      then btGrade.Click;
+    vk_F7    : if (Shift = []) and (btNumSerie.Enabled)   then btNumSerie.Click;
+    vk_Escape: Bt_Sair.Click;
+  end;
+end;
+
+procedure TfEntradaNotaConsulta.FormKeyPress(Sender: TObject; var Key: Char);
+begin
+  if (key = #13) then
+  begin
+    Key := #0;
+    Perform(Wm_NextDlgCtl, 0, 0);
+  end;
+end;
+
+procedure TfEntradaNotaConsulta.FormClose(Sender: TObject; var Action: TCloseAction);
+begin
+  SalvaIntegerNoRegistro(ChaveDoRegistro, 'OrdenadoPor', OrdenadoPor);
+  SalvaStringNoRegistro(ChaveDoRegistro, 'ItemsOrdenadoPor', ItemsOrdenadoPor);
+
+  fDB.FechaTT(IBNotasFechadas);
+  fDB.FechaTT(DtM.IBNFItems);
+  Action := caFree;
+  wwDBGrid1.SaveToIniFile;
+end;
+
+procedure TfEntradaNotaConsulta.FormCreate(Sender: TObject);
+begin
+  ChaveDoRegistro := RegChaveForms+EstaChave;
+  MostraEstaNota := 0;
+
+  CM.InicializaGrid(TeclaTaPressionada(vk_Shift), self, wwDBGrid1);
+  DataSource2.DataSet := DtM.IBNFItems;
+
+  Transacao  := DtM.TrNF;
+  AbriuAgora := true;
+  OrdenadoPor := LeIntegerDoRegistro(ChaveDoRegistro, 'OrdenadoPor', 0);
+  ItemsOrdenadoPor := LeStringDoRegistro(ChaveDoRegistro, 'ItemsOrdenadoPor', 'SEQUENCIAL');
+
+  with DtM do
+  begin
+    ComboBoxFornecedor.Clear;
+    ComboBoxFornecedor.Items.Add('*** TODOS OS FORNECEDORES ***'+ Espacos200 + '¤-9999');
+    IBTabela.Active := false;
+    IBTabela.SQL.Clear;
+    IBTabela.SQL.Add('Select * from FORNECEDORES order by NM_FORNECEDOR');
+    IBTabela.Active := true;
+    while not IBTabela.eof do
+    begin
+      ComboBoxFornecedor.Items.Add(IBTabela.FieldByName('NM_FORNECEDOR').AsString + Espacos200 + '¤' + IBTabela.FieldByName('CD_FORNECEDOR').AsString);
+      IBTabela.Next;
+    end;
+    fDB.FechaTT(IBTabela);
+    ComboBoxFornecedor.ItemIndex := 0;
+  end;
+  FiltroFornecedor := -9999;
+end;
+
+procedure TfEntradaNotaConsulta.FormPaint(Sender: TObject);
+begin
+//  if AbriuAgora then AbreATabela;
+end;
+
+procedure TfEntradaNotaConsulta.AbreATabela;
+begin
+  AbriuAgora := false;
+  IBNotasFechadas.Active := false;
+  IBNotasFechadas.SQL.Clear;
+  IBNotasFechadas.SQL.Add(Select);
+  if FiltroFornecedor <> -9999 then
+    IBNotasFechadas.SQL.Add('and CD_FORNECEDOR = '+IntToStr(FiltroFornecedor));
+
+  case OrdenadoPor of
+    0 : IBNotasFechadas.SQL.Add('Order By CD_FORNECEDOR');
+    1 : IBNotasFechadas.SQL.Add('Order By NM_FORNECEDOR');
+    2 : IBNotasFechadas.SQL.Add('Order By DT_ENTRADA');
+    3 : IBNotasFechadas.SQL.Add('Order By VALOR_TOTAL_NOTA');
+  end;
+  if not IBNotasFechadas.Prepared then IBNotasFechadas.Prepare;
+  IBNotasFechadas.Active := true;
+
+  if MostraEstaNota > 0 then
+  begin
+    try fEntradaNotaConsulta.IBNotasFechadas.Locate('CD_NOTA', MostraEstaNota, []); except end;
+  end;
+end;
+
+procedure TfEntradaNotaConsulta.DataSource1DataChange(Sender: TObject; Field: TField);
+begin
+  FiltraItemsDaNota;
+end;
+
+{procedure TfConsultaNotas.Filtra;
+begin
+
+end;}
+
+procedure TfEntradaNotaConsulta.Bt_PesquisarClick(Sender: TObject);
+begin
+  ItemEsc := mPesq.Pesquisa(pqEntradaNotas, [], nil, '', 'NOTA_FECHADA = ''V''');
+  if ItemEsc.CodInt > 0 then
+    try IBNotasFechadas.Locate('CD_NOTA', ItemEsc.CodInt, []); except end;
+end;
+
+procedure TfEntradaNotaConsulta.bt_ImprimirClick(Sender: TObject);
+begin
+  with Relatorios do
+  begin
+    Referencia := IBNotasFechadas.FieldByName('CD_NOTA').AsInteger;
+    QualRelatorio := rlEntradaNota;
+    CodigoDoRelatorio := '0';
+    ReportSystem1.Execute;
+  end;
+end;
+
+procedure TfEntradaNotaConsulta.RadioGroup1Click(Sender: TObject);
+var
+  Book : TBookMark;
+begin
+  Book := IBNotasFechadas.GetBookmark;
+  OrdenadoPor := RadioGroup1.ItemIndex;
+  AbreATabela;
+  IBNotasFechadas.GotoBookmark(Book);
+end;
+
+procedure TfEntradaNotaConsulta.ComboBoxFornecedorChange(Sender: TObject);
+begin
+  FiltroFornecedor := StrToInt(PegaAPartirDoUltimo(ComboBoxFornecedor.Text, '¤'));
+  AbreATabela;
+end;
+
+procedure TfEntradaNotaConsulta.btGradeClick(Sender: TObject);
+var
+  CDNOTA,
+  CodigoDoProduto : Integer;
+begin
+  CodigoDoProduto := DtM.IBNFItems.FieldByName('CD_PRODUTO').AsInteger;
+  CDNOTA := IBNotasFechadas.FieldByName('CD_NOTA').AsInteger;
+
+  if (CodigoDoProduto <= 0) then Exit;
+  Application.CreateForm(TfEntradaGrades, fEntradaGrades);
+  fEntradaGrades.SomenteLeitura := true;
+  fEntradaGrades.CodProduto := CodigoDoProduto;
+  fEntradaGrades.CdNota     := CDNOTA;
+  fEntradaGrades.ShowModal;
+  FreeAndNil(fEntradaGrades);
+end;
+
+procedure TfEntradaNotaConsulta.btNumSerieClick(Sender: TObject);
+var
+  CDNOTA,
+  CodigoDoProduto : Integer;
+begin
+  CodigoDoProduto := DtM.IBNFItems.FieldByName('CD_PRODUTO').AsInteger;
+  CDNOTA := IBNotasFechadas.FieldByName('CD_NOTA').AsInteger;
+
+  if (CodigoDoProduto <= 0) then Exit;
+  Application.CreateForm(TfEntradaNumSerie, fEntradaNumSerie);
+  fEntradaNumSerie.Cd_Produto := CodigoDoProduto;
+  fEntradaNumSerie.Cd_Nota    := CDNOTA;
+  fEntradaNumSerie.lbCodProduto.Caption  := DtM.IBNFItems.FieldByName('COD_BARRAS').AsString;
+  fEntradaNumSerie.lbNomeProduto.Caption := DtM.IBNFItems.FieldByName('NM_PRODUTO').AsString;
+  fEntradaNumSerie.QuantidadeEsperada    := trunc(DtM.IBNFItems.FieldByName('QUANTIDADE').AsCurrency * DtM.IBNFItems.FieldByName('UNDCONVERSAO').AsCurrency);
+  fEntradaNumSerie.ShowModal;
+  if fEntradaNumSerie.Alterou then
+  begin
+    with DtM do
+    begin
+      IBTabela2.Active := false;
+      IBTabela2.SQL.Clear;
+      IBTabela2.SQL.Add('select * from ENTRADA_NUMSERIE where CD_NOTA = :CD_NOTA and CD_PRODUTO = :CD_PRODUTO ');
+      if not IBTabela2.Prepared then IBTabela2.Prepare;
+      IBTabela2.ParamByName('CD_NOTA').AsInteger := CDNota;
+      IBTabela2.ParamByName('CD_PRODUTO').AsInteger := CodigoDoProduto;
+      IBTabela2.Active := true;
+      while not IBTabela2.eof do
+      begin
+        try
+          if not IBTabela.IB_Transaction.InTransaction then IBTabela.IB_Transaction.StartTransaction;
+          IBTabela.Active := false;
+          IBTabela.SQL.Clear;
+          IBTabela.SQL.Add('insert into NUMSERIE');
+          IBTabela.SQL.Add('( CD_PRODUTO,  NUMSERIE,  CD_NOTAENTRADA,  NUM_DOC_VENDA,  DISPONIVEL)');
+          IBTabela.SQL.Add('values');
+          IBTabela.SQL.Add('(:CD_PRODUTO, :NUMSERIE, :CD_NOTAENTRADA, :NUM_DOC_VENDA, :DISPONIVEL)');
+          if not IBTabela.Prepared then IBTabela.Prepare;
+          IBTabela.ParamByName('CD_PRODUTO').AsInteger     := IBNFItems.FieldByName('CD_PRODUTO').AsInteger;
+          IBTabela.ParamByName('NUMSERIE').AsString        := IBTabela2.FieldByName('NUMSERIE').AsString;
+          IBTabela.ParamByName('CD_NOTAENTRADA').AsInteger := CDNota;
+          IBTabela.ParamByName('NUM_DOC_VENDA').AsInteger  := 0;
+          IBTabela.ParamByName('DISPONIVEL').AsString      := 'V';
+          IBTabela.ExecSQL;
+          IBTabela.IB_Transaction.Commit;
+        except
+          IBTabela.IB_Transaction.Rollback;
+        end;
+
+        IBTabela2.Next;
+      end;
+    end;
+  end;
+  FreeAndNil(fEntradaNumSerie);
+end;
+
+procedure TfEntradaNotaConsulta.wwDBGrid1TitleButtonClick(Sender: TObject; AFieldName: String);
+begin
+  ItemsOrdenadoPor := AFieldName;
+  FiltraItemsDaNota;
+end;
+
+end.

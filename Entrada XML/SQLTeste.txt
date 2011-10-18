@@ -1,0 +1,9 @@
+select first 1
+(select sum(VALOR_TOTAL_NOTA)
+from ENTRADA where NOTA_FECHADA = 'F'  and (1 = 1) ) As VALORTOTALNOTAS,
+(select count(*)
+from ENTRADA where NOTA_FECHADA = 'F'  and (1 = 1) ) As QUANTNOTAS
+
+from ENTRADA
+where 1 = 1
+ and (1 = 1) 

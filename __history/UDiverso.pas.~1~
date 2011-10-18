@@ -1,0 +1,205 @@
+unit UDiverso;
+
+interface
+
+uses
+  SysUtils, Classes, FMTBcd, DB, SqlExpr, UFrmAguarde, Forms, Dialogs;
+
+const
+  //Modos de FrmAguarde
+  TA_MENSAGEM_COMUM        = 0;
+  TA_PESQUISA_DUPLICIDADES = 1;
+  TA_UNIFICACAO            = 2;
+
+type
+  TDv = class(TDataModule)
+    dataset: TSQLDataSet;
+  private
+    { Private declarations }
+    CamposChave : String;
+  public
+    { Public declarations }
+    function  ExecutaSQL(sql : String):boolean;
+    function  PegaCodigoDaEmpresaNaWeb : integer;
+    procedure PegaCamposChavePrimaria(Chave: String);
+    function  PegaNomeChavePrimaria (Tabela : string) : string;
+    procedure ExcluiChavePrimaria(Chave, Tabela : String);
+    procedure RecriaChavePrimaria(tabela : String);
+    function  JaExisteNaTabela(tabela, campochave: String; cd_objeto : integer):boolean;
+    function  ExisteGrade(cd_produto : integer) : boolean;
+    function  QuantGrades(cd_produto: integer): integer;
+    procedure AbreTelaAguarde(mensagem : string; progressBarMax : integer = 0; Modo : integer = 0);
+    procedure IncrementaTelaAguarde;
+    procedure FechaTelaAguarde;
+  end;
+
+var
+  Dv: TDv;
+  CodigoDaEmpresaNaWeb : Integer;
+
+implementation
+
+uses UDtmBancoDeDados;
+
+{$R *.dfm}
+
+{ TDv }
+
+procedure TDv.AbreTelaAguarde(mensagem: string; progressBarMax: integer; Modo : integer);
+begin
+  if (FrmAguarde = nil) then
+    Application.CreateForm(TFrmAguarde,FrmAguarde);
+  FrmAguarde.lblMensagem.Caption := mensagem;
+
+  if (progressBarMax > 0) then
+  begin
+    FrmAguarde.ProgressBar.Visible := true;
+    FrmAguarde.ProgressBar.Max := progressBarMax;
+  end;
+
+  case modo of
+    TA_MENSAGEM_COMUM:
+      with FrmAguarde do
+      begin
+        Height := 120;
+      end;
+    TA_PESQUISA_DUPLICIDADES:
+      with FrmAguarde do
+      begin
+        Height := 340;
+        pnlDuplicidades.visible := true;
+        FrmAguarde.lblTotalRegistros.Caption := inttostr(progressBarMax);
+      end;
+    TA_UNIFICACAO:
+  end;
+  if FrmAguarde.Showing then
+    frmAguarde.BringToFront
+  else
+    FrmAguarde.Show;
+  Application.ProcessMessages;
+end;
+
+procedure TDv.ExcluiChavePrimaria(Chave, Tabela: String);
+begin
+  dataset.Active := false;
+  dataset.CommandText := 'ALTER TABLE '+Tabela+' DROP CONSTRAINT '+Chave;
+  dataset.ExecSQL;
+end;
+
+function TDv.ExecutaSQL(sql: String): boolean;
+begin
+  try
+    dataset.Active := false;
+    dataset.CommandText := '';
+    dataset.CommandText := sql;
+    dataset.ExecSQL();
+    result := true;
+  except
+    result := false;
+  end;
+end;
+
+function TDv.JaExisteNaTabela(tabela, campochave: String; cd_objeto : integer): boolean;
+begin
+  dataset.Active := false;
+  dataset.CommandText := 'select count(*) as cont from '+tabela+' where '+campoChave+' = :cd';
+  dataset.ParamByName('CD').AsInteger := cd_objeto;
+  dataset.Active := true;
+  if (dataset.FieldByName('CONT').AsInteger > 0) then
+    result := true
+  else
+    result := false;
+end;
+
+procedure TDv.PegaCamposChavePrimaria(Chave: String);
+begin
+  dataset.Active := false;
+  dataset.commandText :=  'select S.RDB$FIELD_NAME CAMPO from RDB$INDEX_SEGMENTS S'+#13+
+                          'join RDB$INDICES I on I.RDB$INDEX_NAME = S.RDB$INDEX_NAME'+#13+
+                          'where S.RDB$INDEX_NAME = :CHAVE';
+
+  dataset.ParamByName('CHAVE').AsString := Chave;
+  dataset.Active := true;
+  if not dataset.IsEmpty then
+  begin
+    CamposChave := dataset.FieldByName('CAMPO').AsString;
+    dataset.Next;
+    while not dataset.Eof do
+    begin
+      CamposChave := CamposChave + ','+ dataset.FieldByName('CAMPO').AsString;
+      dataset.Next;
+    end;
+  end;
+  dataset.Active := false;
+end;
+
+function TDv.PegaCodigoDaEmpresaNaWeb: integer;
+begin
+  dataset.Active := false;
+  dataset.CommandText := 'select CD_EMPRESAWEB from WEB';
+  dataset.Active := true;
+  result := dataset.FieldByName('CD_EMPRESAWEB').AsInteger;
+  dataset.Active := false;
+end;
+
+function TDv.PegaNomeChavePrimaria(Tabela : string) : string;
+begin
+  dataset.Active := false;
+  dataset.commandtext :=  'select S.RDB$INDEX_NAME CHAVE from RDB$INDEX_SEGMENTS S'+#13+
+                          'join RDB$INDICES I on I.RDB$INDEX_NAME = S.RDB$INDEX_NAME'+#13+
+                          'where I.RDB$RELATION_NAME = :TABELA'+#13+
+                          'and I.RDB$UNIQUE_FLAG = 1';
+  dataset.ParamByName('TABELA').AsString := tabela;
+  dataset.Active := true;
+  result := dataset.FieldByName('CHAVE').AsString;
+end;
+
+procedure TDv.RecriaChavePrimaria(tabela: String);
+begin
+  dataset.Active := false;
+  dataset.commandtext := 'alter table '+Tabela+' add constraint PK_'+Tabela+' primary key ('+CamposChave+')';
+  CamposChave := '';
+  dataset.ExecSQL;
+end;
+
+function TDv.ExisteGrade(cd_produto: integer): boolean;
+begin
+    dataset.Active := false;
+    dataset.CommandText := 'select * from grades where cd_produto = :cd_produto';
+    dataset.ParamByName('cd_produto').AsInteger := cd_produto;
+    dataset.Active := true;
+    if not dataset.Eof then
+    begin
+//      showmessage('yep');
+      result := true;
+    end
+    else begin
+//      showmessage('nopes');
+      result := false;
+    end;
+end;
+
+procedure TDv.FechaTelaAguarde;
+begin
+  FrmAguarde.Close;
+  FrmAguarde.Free;
+  Frmaguarde := nil;
+end;
+
+procedure TDv.IncrementaTelaAguarde;
+begin
+  FrmAguarde.lblRegAtual.Caption := inttostr(strtoint(FrmAguarde.lblRegAtual.Caption) + 1);
+  FrmAguarde.ProgressBar.Position := FrmAguarde.ProgressBar.Position + 1;
+  Application.ProcessMessages;
+end;
+
+function TDv.QuantGrades(cd_produto: integer): integer;
+begin
+    dataset.Active := false;
+    dataset.CommandText := 'select count(*) as CONT from grades where cd_produto = :cd_produto';
+    dataset.ParamByName('cd_produto').AsInteger := cd_produto;
+    dataset.Active := true;
+    result := dataset.FieldbyName('CONT').asInteger;
+end;
+
+end.
